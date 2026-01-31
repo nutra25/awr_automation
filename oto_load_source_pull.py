@@ -8,6 +8,7 @@ import csv
 import os
 import time
 
+import config
 from awr_loadpull_automation import AwrLoadPullAutomator, LoadPullParams
 from awr_marker_reader import read_m1_values
 from awr_hbtuner import set_tuner_mag_ang
@@ -381,13 +382,13 @@ def main():
     # )
 
     run_spec = RunSpec(
-        n_iter=2,
-        radius_list=("0.99", "0.40", "0.30"),
-        schematic_name="VDS40_Load_Pull",
-        host="127.0.0.1",
-        port=50505,
-        udp_timeout_s=100,
-        down_blast=60,
+        n_iter= config.iteration_count,
+        radius_list= config.radius_list,
+        schematic_name= config.schematic_name,
+        host= config.host,
+        port= config.port,
+        udp_timeout_s= config.udp_timeout_s,
+        down_blast= config.down_blast,
     )
 
     out_csv = "results/loadpull_sweep_results_one_row_per_state.csv"
