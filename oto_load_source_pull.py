@@ -382,13 +382,13 @@ def main():
     # )
 
     run_spec = RunSpec(
-        n_iter= config.iteration_count,
-        radius_list= config.radius_list,
-        schematic_name= config.schematic_name,
-        host= config.host,
-        port= config.port,
-        udp_timeout_s= config.udp_timeout_s,
-        down_blast= config.down_blast,
+        n_iter= config.ITERATION_COUNT,
+        radius_list= config.RADIUS_LIST,
+        schematic_name= config.SCHEMATIC_NAME,
+        host= config.HOST,
+        port= config.PORT,
+        udp_timeout_s= config.UDP_TIMEOUT,
+        down_blast= config.DOWN_BLAST,
     )
 
     out_csv = "results/loadpull_sweep_results_one_row_per_state.csv"

@@ -1,44 +1,63 @@
 import objects
+from objects import generate_sweep_values
 
 ##################################################
 # SCRIPT SETTING !DONT_TOUCH!
-host = "127.0.0.1"
-port = 50505
-udp_timeout_s = 100
-down_blast = 60
+HOST: str = "127.0.0.1"
+PORT: int = 50505
+UDP_TIMEOUT: int = 100
+DOWN_BLAST: int = 60
 ##################################################
 
 ##################################################
 # PROJECT SETTINGS
-schematic_name = "VDS40_Load_Pull"
+SCHEMATIC_NAME: str = "VDS40_Load_Pull"
 ##################################################
 
 ##################################################
 # STATE CONSTANTS
-state_cons = [objects.State() for i in range(1)]
-
-state_cons[0].name = "VDS"
-state_cons[0].element = [objects.Element() for _ in range(1)]
-state_cons[0].value = ("40",)
-state_cons[0].element[0].name = "DCVS.VDS"
-state_cons[0].element[0].arg = "V"
+STATE_CONS = [
+    objects.State(
+        name="VDS",
+        value="40",
+        element=[
+            objects.Element(name="DCVS.VDS", arg="V")
+        ]
+    )
+]
 ##################################################
 
 ##################################################
 # STATE VARIABLES
-state_var = [ objects.State() for _ in range(1) ]
-
-state_var[0].name = "Frekans"
-state_var[0].element = [objects.Element() for _ in range(2)]
-state_var[0].value = ("13", "13.5", "14")
-state_var[0].element[0].name = "HBTUNER3.SourcePull"
-state_var[0].element[0].arg = "Fo"
-state_var[0].element[1].name = "HBTUNER3.LoadPull"
-state_var[0].element[1].arg = "Fo"
+STATE_VAR = [
+    objects.State(
+        name="Frekans (GHz)",
+        value=generate_sweep_values(start=13, stop=13.25, step=0.25),
+        element=[
+            objects.Element(name="HBTUNER3.SourcePull", arg="Fo"),
+            objects.Element(name="HBTUNER3.LoadPull", arg="Fo")
+        ]
+    ),
+    objects.State(
+        name="P_in (dBm)",
+        value=generate_sweep_values(start=27, stop=29, step=1),
+        element=[
+            objects.Element(name="PORT1.P1", arg="Pwr")
+        ]
+    ),
+    objects.State(
+        name="VGS (V)",
+        value=generate_sweep_values(start=-2, stop=-2.25, step=-0.25),
+        element=[
+            objects.Element(name="DCVS.VGS", arg="V"),
+        ]
+    )
+]
 ##################################################
 
 ##################################################
 # ITERATION SETTINGS
-iteration_count = 3
-radius_list = ("0.99", "0.40", "0.30")
+ITERATION_COUNT: int = 3
+RADIUS_LIST: tuple = ("0.99", "0.40", "0.30")
+MARKER: str = "m1"
 ##################################################

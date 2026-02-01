@@ -13,8 +13,6 @@ class WaitResult:
     ok: bool
     info: Dict[str, Any]
 
-import pyawr
-
 class AwrSimFinishWaiter:
     """
     AWR Status Window üzerinden "End Simulate" + match_text ile sim bitti algılayıcı.
