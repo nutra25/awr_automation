@@ -121,12 +121,12 @@ class SimulationRunner:
 
     @staticmethod
     def _set_schematic_element_value(element_name_exact: str, params: dict):
-        logger.info(f"  ->[API][awr_schematic_setter] SENT:[schematic_name:({config.SCHEMATIC_NAME}) element_name_exact:({element_name_exact}) params:({params})]")
         out = set_element_parameters(
             schematic_name=config.SCHEMATIC_NAME,
             element_name_exact=element_name_exact,
             params=params,
         )
+        logger.info(f"  ->[API][awr_schematic_setter] SENT:[schematic_name:({config.SCHEMATIC_NAME}) element_name_exact:({element_name_exact}) params:({params})]")
 
     @staticmethod
     def _get_graph_data(iteration: int, pull_type: PullType, marker: str) -> objects.PullResult:
@@ -155,7 +155,6 @@ class SimulationRunner:
         ang = numbers[2]
 
         logger.info(f"  ->[API][awr_marker_reader] SENT:[graph_name:({graph_name}) marker:({marker})] -> RECEIVED:[point:({point}) mag:({mag}) ang:({ang})]")
-
         return objects.PullResult(
             iter_no=iteration,
             mode=pull_type_str,
@@ -173,13 +172,14 @@ class SimulationRunner:
             pull_type: Operation mode (Source Pull or Load Pull).
         """
         pull_type_str = "SP" if pull_type == PullType.SOURCEPULL else "LP"
-        logger.info(f"  ->[API][awr_loadpull_automation] SENT:[iteration:({iteration}) pull_type:({pull_type_str}) radius:({radius}) center_mag:({centermag}) center_ang:({centerang})]")
         bot = AwrLoadPullAutomator(down_blast=config.DOWN_BLAST)
         bot.apply(
             iter_no=iteration,
             mode=pull_type_str,
             params=LoadPullParams(angle_deg=centerang, center_mag=centermag, radius=radius),
         )
+        logger.info(f"  ->[API][awr_loadpull_automation] SENT:[iteration:({iteration}) pull_type:({pull_type_str}) radius:({radius}) center_mag:({centermag}) center_ang:({centerang})]")
+
     def _run_single_state_logic(self, state_values: Tuple[str, ...]):
         """
         Executes the iterative simulation logic for a specific combination of state variables.

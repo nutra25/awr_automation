@@ -19,7 +19,7 @@ SCHEMATIC_NAME: str = "VDS40_Load_Pull"
 STATE_CONS = [
     objects.State(
         name="VDS",
-        value="40",
+        value="50",
         element=[
             objects.Element(name="DCVS.VDS", arg="V")
         ]
@@ -32,7 +32,7 @@ STATE_CONS = [
 STATE_VAR = [
     objects.State(
         name="Frekans (GHz)",
-        value=generate_sweep_values(start=13, stop=13, step=0.25),
+        value=generate_sweep_values(start=12.8, stop=12.8, step=0.25),
         element=[
             objects.Element(name="HBTUNER3.SourceTuner", arg="Fo"),
             objects.Element(name="HBTUNER3.LoadTuner", arg="Fo")
@@ -40,14 +40,14 @@ STATE_VAR = [
     ),
     objects.State(
         name="P_in (dBm)",
-        value=generate_sweep_values(start=27, stop=27, step=1),
+        value=generate_sweep_values(start=30, stop=30, step=1),
         element=[
             objects.Element(name="PORT1.P1", arg="Pwr")
         ]
     ),
     objects.State(
         name="VGS (V)",
-        value=generate_sweep_values(start=-2.81, stop=-2.81, step=-0.25),
+        value=generate_sweep_values(start=-2.71, stop=-2.71, step=-0.25),
         element=[
             objects.Element(name="DCVS.VGS", arg="V"),
         ]
