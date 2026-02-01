@@ -32,22 +32,22 @@ STATE_CONS = [
 STATE_VAR = [
     objects.State(
         name="Frekans (GHz)",
-        value=generate_sweep_values(start=13, stop=13.25, step=0.25),
+        value=generate_sweep_values(start=13, stop=13, step=0.25),
         element=[
-            objects.Element(name="HBTUNER3.SourcePull", arg="Fo"),
-            objects.Element(name="HBTUNER3.LoadPull", arg="Fo")
+            objects.Element(name="HBTUNER3.SourceTuner", arg="Fo"),
+            objects.Element(name="HBTUNER3.LoadTuner", arg="Fo")
         ]
     ),
     objects.State(
         name="P_in (dBm)",
-        value=generate_sweep_values(start=27, stop=29, step=1),
+        value=generate_sweep_values(start=27, stop=27, step=1),
         element=[
             objects.Element(name="PORT1.P1", arg="Pwr")
         ]
     ),
     objects.State(
         name="VGS (V)",
-        value=generate_sweep_values(start=-2, stop=-2.25, step=-0.25),
+        value=generate_sweep_values(start=-2.81, stop=-2.81, step=-0.25),
         element=[
             objects.Element(name="DCVS.VGS", arg="V"),
         ]

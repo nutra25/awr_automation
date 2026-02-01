@@ -1,12 +1,14 @@
 import config
 import logging
-import random
 import itertools
 from typing import List, Tuple
 import objects
 import csv
 from enum import Enum, auto
-
+from awr_loadpull_automation import AwrLoadPullAutomator, LoadPullParams
+from awr_marker_reader import read_marker_raw_text
+from awr_schematic_setter import set_element_parameters
+import re
 # ============================================================
 # LOGGING CONFIGURATION
 # Configures output to both console and a persistent log file.
@@ -120,6 +122,11 @@ class SimulationRunner:
     @staticmethod
     def _set_schematic_element_value(element_name_exact: str, params: dict):
         logger.info(f"  ->[API][awr_schematic_setter] SENT:[schematic_name:({config.SCHEMATIC_NAME}) element_name_exact:({element_name_exact}) params:({params})]")
+        out = set_element_parameters(
+            schematic_name=config.SCHEMATIC_NAME,
+            element_name_exact=element_name_exact,
+            params=params,
+        )
 
     @staticmethod
     def _get_graph_data(iteration: int, pull_type: PullType, marker: str) -> objects.PullResult:
@@ -133,19 +140,28 @@ class SimulationRunner:
         """
         pull_type_str = "SP" if pull_type == PullType.SOURCEPULL else "LP"
         graph_name = f"it{iteration}" + "_source_pull" if pull_type == PullType.SOURCEPULL else f"it{iteration}" + "_load_pull"
-        # Simulation Stub: Generate random data to mimic instrument reading
-        simulated_point = random.randint(0, 100)
-        simulated_mag = round(random.uniform(0, 1), 3)
-        simulated_ang = random.randint(-180, 180)
 
-        logger.info(f"  ->[API][awr_marker_reader] SENT:[graph_name:({graph_name}) marker:({marker})] -> RECEIVED:[point:({simulated_point}) mag:({simulated_mag}) ang:({simulated_ang})]")
+        out = read_marker_raw_text(
+            graph_name=graph_name,
+            marker_name=marker,
+            simulate=True
+        )
+        numbers = re.findall(r"-?\d+\.?\d*", out)
+
+        numbers = [float(n) for n in numbers]
+
+        point = numbers[0]
+        mag = numbers[1]
+        ang = numbers[2]
+
+        logger.info(f"  ->[API][awr_marker_reader] SENT:[graph_name:({graph_name}) marker:({marker})] -> RECEIVED:[point:({point}) mag:({mag}) ang:({ang})]")
 
         return objects.PullResult(
             iter_no=iteration,
             mode=pull_type_str,
-            point=str(simulated_point),
-            mag=str(simulated_mag),
-            ang=str(simulated_ang)
+            point=str(point),
+            mag=str(mag),
+            ang=str(ang)
         )
 
     @staticmethod
@@ -158,7 +174,12 @@ class SimulationRunner:
         """
         pull_type_str = "SP" if pull_type == PullType.SOURCEPULL else "LP"
         logger.info(f"  ->[API][awr_loadpull_automation] SENT:[iteration:({iteration}) pull_type:({pull_type_str}) radius:({radius}) center_mag:({centermag}) center_ang:({centerang})]")
-
+        bot = AwrLoadPullAutomator(down_blast=config.DOWN_BLAST)
+        bot.apply(
+            iter_no=iteration,
+            mode=pull_type_str,
+            params=LoadPullParams(angle_deg=centerang, center_mag=centermag, radius=radius),
+        )
     def _run_single_state_logic(self, state_values: Tuple[str, ...]):
         """
         Executes the iterative simulation logic for a specific combination of state variables.
@@ -204,11 +225,11 @@ class SimulationRunner:
 
             # === SOURCE PULL (SP) ===
             self._set_schematic_element_value(
-                element_name_exact="HBTUNER3.SourcePull",
+                element_name_exact="HBTUNER3.SourceTuner",
                 params={"Mag1": "calcMag(50,0,z0)", "Ang1": "calcAng(50,0,z0)"}
             )
             self._set_schematic_element_value(
-                element_name_exact="HBTUNER3.LoadPull",
+                element_name_exact="HBTUNER3.LoadTuner",
                 params={"Mag1": prev_lp_mag, "Ang1": prev_lp_ang}
             )
             self._run_pull_sim(
@@ -231,11 +252,11 @@ class SimulationRunner:
 
             # === LOAD PULL (LP) ===
             self._set_schematic_element_value(
-                element_name_exact="HBTUNER3.SourcePull",
+                element_name_exact="HBTUNER3.SourceTuner",
                 params={"Mag1": prev_sp_mag, "Ang1": prev_sp_ang}
             )
             self._set_schematic_element_value(
-                element_name_exact="HBTUNER3.LoadPull",
+                element_name_exact="HBTUNER3.LoadTuner",
                 params={"Mag1": "calcMag(50,0,z0)", "Ang1": "calcAng(50,0,z0)"}
             )
             self._run_pull_sim(
@@ -302,6 +323,7 @@ def main():
     """Entry point for the automation script."""
     sim = SimulationRunner()
     sim.start()
+
 
 
 if __name__ == "__main__":

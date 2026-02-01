@@ -7,6 +7,8 @@ import pythoncom
 import win32com.client as win32
 from pywinauto import Desktop
 from pywinauto.keyboard import send_keys
+
+import config
 from awr_udp_span_waiter import open_udp_listener, wait_begin_done_on_socket
 
 
@@ -204,12 +206,12 @@ class AwrLoadPullAutomator:
             time.sleep(0.1)
 
             # ENTER ile run
-            sock = open_udp_listener(host=udp_host, port=udp_port)
+            sock = open_udp_listener(host=config.HOST, port=config.PORT)
             try:
                 # 1) sim'i başlat
                 self._run_with_enter()
                 # 2) BEGIN + DONE bekle
-                ok, span = wait_begin_done_on_socket(sock, timeout_s=sim_timeout_s)
+                ok, span = wait_begin_done_on_socket(sock, timeout_s=60)
                 if not ok:
                     raise TimeoutError(f"BEGIN/DONE UDP gelmedi: {span}")
             finally:
