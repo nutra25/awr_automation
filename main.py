@@ -7,7 +7,7 @@ import csv
 from enum import Enum, auto
 from awr_loadpull_automation import AwrLoadPullAutomator, LoadPullParams
 from awr_marker_reader import read_marker_raw_text
-from awr_schematic_setter import set_element_parameters
+from pyawr_configure_schematic_element import configure_schematic_element
 import re
 # ============================================================
 # LOGGING CONFIGURATION
@@ -201,7 +201,7 @@ class SimulationRunner:
             var_obj = config.STATE_VAR[idx]
             logger.info(f"SET STATE: {var_obj.name} = {val}")
             for _, elem in enumerate(var_obj.element):
-                self._set_schematic_element_value(
+                self._configure_schematic_element(
                     element_name_exact=elem.name,
                     params = {elem.arg: val}
                 )
@@ -224,11 +224,11 @@ class SimulationRunner:
             logger.info(f"--- Iteration {i + 1} (Radius: {current_radius}) ---")
 
             # === SOURCE PULL (SP) ===
-            self._set_schematic_element_value(
+            self._configure_schematic_element(
                 element_name_exact="HBTUNER3.SourceTuner",
                 params={"Mag1": "calcMag(50,0,z0)", "Ang1": "calcAng(50,0,z0)"}
             )
-            self._set_schematic_element_value(
+            self._configure_schematic_element(
                 element_name_exact="HBTUNER3.LoadTuner",
                 params={"Mag1": prev_lp_mag, "Ang1": prev_lp_ang}
             )
@@ -251,11 +251,11 @@ class SimulationRunner:
             prev_sp_ang = sp_res.ang
 
             # === LOAD PULL (LP) ===
-            self._set_schematic_element_value(
+            self._configure_schematic_element(
                 element_name_exact="HBTUNER3.SourceTuner",
                 params={"Mag1": prev_sp_mag, "Ang1": prev_sp_ang}
             )
-            self._set_schematic_element_value(
+            self._configure_schematic_element(
                 element_name_exact="HBTUNER3.LoadTuner",
                 params={"Mag1": "calcMag(50,0,z0)", "Ang1": "calcAng(50,0,z0)"}
             )
@@ -295,7 +295,7 @@ class SimulationRunner:
             for _, cons_obj in enumerate(config.STATE_CONS):
                 logger.info(f"SET CONSTANT: {cons_obj.name} = {cons_obj.value[0]}")
                 for _, elem in enumerate(cons_obj.element):
-                    self._set_schematic_element_value(
+                    self._configure_schematic_element(
                         element_name_exact=elem.name,
                         params={elem.arg: cons_obj.value[0]}
                     )

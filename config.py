@@ -3,9 +3,6 @@ from objects import generate_sweep_values
 
 ##################################################
 # SCRIPT SETTING !DONT_TOUCH!
-HOST: str = "127.0.0.1"
-PORT: int = 50505
-UDP_TIMEOUT: int = 100
 DOWN_BLAST: int = 60
 ##################################################
 

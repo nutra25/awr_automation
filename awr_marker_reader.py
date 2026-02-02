@@ -1,16 +1,12 @@
 import pythoncom
 from win32com.client import dynamic
-from awr_udp_span_waiter import open_udp_listener, wait_begin_done_on_socket
 
 def read_marker_raw_text(
     *,
     graph_name: str,
     marker_name: str,
     progid: str = "AWR.MWOffice.19.0",
-    simulate: bool = True,
-    sim_timeout_s: float = 10.0,
-    udp_host: str = "127.0.0.1",
-    udp_port: int = 50505,
+    simulate: bool = True
 ) -> str:
     """
     Returns the marker's DataValueText as a raw string (no parsing).
@@ -22,14 +18,8 @@ def read_marker_raw_text(
         proj = app.Project
 
         if simulate:
-            sock = open_udp_listener(host=udp_host, port=udp_port)
-            try:
-                proj.Simulate()
-                ok, span = wait_begin_done_on_socket(sock, timeout_s=sim_timeout_s)
-                if not ok:
-                    raise TimeoutError(f"BEGIN/DONE UDP gelmedi: {span}")
-            finally:
-                sock.close()
+            simulator = proj.Simulator
+            simulator.Analyze()
 
         g = proj.Graphs.Item(graph_name)
 
