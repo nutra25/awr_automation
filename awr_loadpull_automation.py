@@ -206,16 +206,7 @@ class AwrLoadPullAutomator:
             time.sleep(0.1)
 
             # ENTER ile run
-            sock = open_udp_listener(host=config.HOST, port=config.PORT)
-            try:
-                # 1) sim'i başlat
-                self._run_with_enter()
-                # 2) BEGIN + DONE bekle
-                ok, span = wait_begin_done_on_socket(sock, timeout_s=60)
-                if not ok:
-                    raise TimeoutError(f"BEGIN/DONE UDP gelmedi: {span}")
-            finally:
-                sock.close()
+            self._run_with_enter()
+
 
         return {"wiz_name": wiz_name, "title": title, "params": params, "run_after_save": run_after_save}
-

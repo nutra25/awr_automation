@@ -6,7 +6,7 @@ import objects
 import csv
 from enum import Enum, auto
 from awr_loadpull_automation import AwrLoadPullAutomator, LoadPullParams
-from awr_marker_reader import read_marker_raw_text
+from pyawr_get_marker_value import get_marker_value
 from pyawr_configure_schematic_element import configure_schematic_element
 import re
 # ============================================================
