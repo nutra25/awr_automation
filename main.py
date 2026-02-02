@@ -1,14 +1,15 @@
 import config
 import logging
 import itertools
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any
 import objects
 import csv
 from enum import Enum, auto
-from awr_loadpull_automation import AwrLoadPullAutomator, LoadPullParams
 from pyawr_get_marker_value import get_marker_value
 from pyawr_configure_schematic_element import configure_schematic_element
+from pyawr_loadpull_wizard import run_loadpull_wizard
 import re
+
 # ============================================================
 # LOGGING CONFIGURATION
 # Configures output to both console and a persistent log file.
@@ -120,13 +121,14 @@ class SimulationRunner:
             logger.info(f"Data saved to CSV -> State: {state_values}")
 
     @staticmethod
-    def _set_schematic_element_value(element_name_exact: str, params: dict):
-        out = set_element_parameters(
-            schematic_name=config.SCHEMATIC_NAME,
-            element_name_exact=element_name_exact,
-            params=params,
+    def _configure_schematic_element(element_name_exact: str, params: dict):
+        out = configure_schematic_element(
+            schematic_title=config.SCHEMATIC_NAME,
+            target_designator=element_name_exact,
+            parameter_map=params,
         )
-        logger.info(f"  ->[API][awr_schematic_setter] SENT:[schematic_name:({config.SCHEMATIC_NAME}) element_name_exact:({element_name_exact}) params:({params})]")
+        logger.info(f"  ->[API][pyawr_configure_schematic_element] SENT:[schematic_title:({config.SCHEMATIC_NAME}) target_designator:({element_name_exact}) parameter_map:({params})]")
+        logger.info(f"  ->[API][pyawr_configure_schematic_element] RETURN:[{out}]")
 
     @staticmethod
     def _get_graph_data(iteration: int, pull_type: PullType, marker: str) -> objects.PullResult:
@@ -141,10 +143,10 @@ class SimulationRunner:
         pull_type_str = "SP" if pull_type == PullType.SOURCEPULL else "LP"
         graph_name = f"it{iteration}" + "_source_pull" if pull_type == PullType.SOURCEPULL else f"it{iteration}" + "_load_pull"
 
-        out = read_marker_raw_text(
-            graph_name=graph_name,
-            marker_name=marker,
-            simulate=True
+        out = get_marker_value(
+            graph_title=graph_name,
+            marker_designator=marker,
+            perform_simulation=True
         )
         numbers = re.findall(r"-?\d+\.?\d*", out)
 
@@ -165,20 +167,32 @@ class SimulationRunner:
 
     @staticmethod
     def _run_pull_sim( iteration: int, pull_type: PullType, radius: str, centermag: str, centerang: str):
-        """
-        Simulates the simulation of Load/Source Pull analysis from the AWR environment.
-        Args:
-            iteration: Current iteration index.
-            pull_type: Operation mode (Source Pull or Load Pull).
-        """
-        pull_type_str = "SP" if pull_type == PullType.SOURCEPULL else "LP"
-        bot = AwrLoadPullAutomator(down_blast=config.DOWN_BLAST)
-        bot.apply(
-            iter_no=iteration,
-            mode=pull_type_str,
-            params=LoadPullParams(angle_deg=centerang, center_mag=centermag, radius=radius),
-        )
-        logger.info(f"  ->[API][awr_loadpull_automation] SENT:[iteration:({iteration}) pull_type:({pull_type_str}) radius:({radius}) center_mag:({centermag}) center_ang:({centerang})]")
+
+        if pull_type == PullType.SOURCEPULL:
+            lp_sweep_source1 = True
+            lp_sweep_load1 = False
+            datafilename_part = "source"
+        else:
+            lp_sweep_source1 = False
+            lp_sweep_load1 = True
+            datafilename_part = "load"
+
+        datafilename = f"{datafilename_part}_data_{iteration}"
+
+        loadpull_wizard_options: dict[str, Any] = {
+            "LP_MaxHarmonic": 1,
+            "LP_DataFileName": datafilename,
+            "LP_OverwriteDataFile": True,
+            "LP_Sweep_Source1": lp_sweep_source1,
+            "LP_Sweep_Load1": lp_sweep_load1,
+            f"LP_{datafilename_part.capitalize()}1_Density": "Extra fine",
+            f"LP_{datafilename_part.capitalize()}1_Radius": float(radius),
+            f"LP_{datafilename_part.capitalize()}1_CenterMagnitude": float(centermag),
+            f"LP_{datafilename_part.capitalize()}1_CenterAngle": float(centerang)
+        }
+
+        run_loadpull_wizard(loadpull_wizard_options)
+        logger.info(f"  ->[API][awr_loadpull_automation] SENT:[{loadpull_wizard_options}]")
 
     def _run_single_state_logic(self, state_values: Tuple[str, ...]):
         """

@@ -1,1 +1,10 @@
 # awr_a     
+"LP_MaxHarmonic"
+"LP_DataFileName"
+"LP_OverwriteDataFile"
+"LP_Sweep_Source1"
+"LP_Sweep_Load1"
+"LP_Load1_Density"
+"LP_Load1_Radius"
+"LP_Load1_CenterMagnitude"
+"LP_Load1_CenterAngle"
