@@ -15,9 +15,38 @@ import re
 # Configures output to both console and a persistent log file.
 # Format: Date Time | Log Level | Message
 # ============================================================
+
+# Stil ve Sıfırlama
+RESET = "\033[0m"
+BOLD  = "\033[1m"
+UNDERLINE = "\033[4m"
+
+# Standart Renkler
+RED    = "\033[31m"
+GREEN  = "\033[32m"
+YELLOW = "\033[33m"
+BLUE   = "\033[34m"
+MAGENTA = "\033[35m"
+CYAN   = "\033[36m"
+
+# Parlak Renkler (Genelde daha iyi görünürler)
+B_RED    = "\033[91m"
+B_GREEN  = "\033[92m"
+B_YELLOW = "\033[93m"
+B_BLUE   = "\033[94m"
+B_MAGENTA = "\033[95m"
+B_CYAN   = "\033[96m"
+GRAY     = "\033[90m"
+
+# Arka Plan Renkleri
+BG_RED    = "\033[41m"
+BG_GREEN  = "\033[42m"
+BG_YELLOW = "\033[43m"
+BG_BLUE   = "\033[44m"
+
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s | %(levelname)-1s | %(message)s',
+    format=f'{BOLD}{GRAY}[31;20m%(asctime)s | %(levelname)-1s |{RESET} %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S',
     handlers=[
         # File Handler: Overwrites the log file on each new run (mode='w').
@@ -91,9 +120,9 @@ class SimulationRunner:
 
             # Flush immediately to ensure headers are persisted
             self.csv_file.flush()
-            logger.info(f"CSV Initialized: {self.csv_filename}")
+            logger.info(f"{B_GREEN}CSV Initialized: {self.csv_filename}")
         except IOError as e:
-            logger.error(f"Failed to initialize CSV file: {e}")
+            logger.error(f"{B_RED}Failed to initialize CSV file: {e}")
             raise
 
     def _write_state_to_csv(self, state_values: Tuple[str, ...], iteration_results: List[objects.PullResult]):
@@ -118,7 +147,7 @@ class SimulationRunner:
         if self.csv_writer:
             self.csv_writer.writerow(row_data)
             self.csv_file.flush()
-            logger.info(f"Data saved to CSV -> State: {state_values}")
+            logger.info(f"{GREEN}Data saved to CSV -> State: {state_values}")
 
     @staticmethod
     def _configure_schematic_element(element_name_exact: str, params: dict):
@@ -127,8 +156,8 @@ class SimulationRunner:
             target_designator=element_name_exact,
             parameter_map=params,
         )
-        logger.info(f"  ->[API][pyawr_configure_schematic_element] SENT:[schematic_title:({config.SCHEMATIC_NAME}) target_designator:({element_name_exact}) parameter_map:({params})]")
-        logger.info(f"  ->[API][pyawr_configure_schematic_element] RETURN:[{out}]")
+        logger.info(f"      {MAGENTA}->[API][pyawr_configure_schematic_element] SENT:[schematic_title:({config.SCHEMATIC_NAME}) target_designator:({element_name_exact}) parameter_map:({params})]")
+        logger.info(f"      {CYAN}->[API][pyawr_configure_schematic_element] RETURN:[{out}]")
 
     @staticmethod
     def _get_graph_data(iteration: int, pull_type: PullType, marker: str) -> objects.PullResult:
@@ -156,7 +185,8 @@ class SimulationRunner:
         mag = numbers[1]
         ang = numbers[2]
 
-        logger.info(f"  ->[API][awr_marker_reader] SENT:[graph_name:({graph_name}) marker:({marker})] -> RECEIVED:[point:({point}) mag:({mag}) ang:({ang})]")
+        logger.info(f"      {MAGENTA}->[API][awr_marker_reader] SENT:[graph_name:({graph_name}) marker:({marker})] ")
+        logger.info(f"      {CYAN}->[API][awr_marker_reader] RECEIVED:[point:({point}) mag:({mag}) ang:({ang})]")
         return objects.PullResult(
             iter_no=iteration,
             mode=pull_type_str,
@@ -192,7 +222,7 @@ class SimulationRunner:
         }
 
         run_loadpull_wizard(loadpull_wizard_options)
-        logger.info(f"  ->[API][awr_loadpull_automation] SENT:[{loadpull_wizard_options}]")
+        logger.info(f"      {MAGENTA}->[API][awr_loadpull_automation] SENT:[{loadpull_wizard_options}]")
 
     def _run_single_state_logic(self, state_values: Tuple[str, ...]):
         """
@@ -213,7 +243,7 @@ class SimulationRunner:
         # ------------------------------------------------
         for idx, val in enumerate(state_values):
             var_obj = config.STATE_VAR[idx]
-            logger.info(f"SET STATE: {var_obj.name} = {val}")
+            logger.info(f"  {GREEN}SET STATE: {var_obj.name} = {val}")
             for _, elem in enumerate(var_obj.element):
                 self._configure_schematic_element(
                     element_name_exact=elem.name,
@@ -235,7 +265,7 @@ class SimulationRunner:
         # ------------------------------------------------
         for i in range(config.ITERATION_COUNT):
             current_radius = config.RADIUS_LIST[i]
-            logger.info(f"--- Iteration {i + 1} (Radius: {current_radius}) ---")
+            logger.info(f"{YELLOW}--- Iteration {i + 1} (Radius: {current_radius}) ---")
 
             # === SOURCE PULL (SP) ===
             self._configure_schematic_element(
@@ -294,7 +324,7 @@ class SimulationRunner:
         # ------------------------------------------------
         self._write_state_to_csv(state_values, current_state_results)
 
-        logger.info("--- State Completed ---\n")
+        logger.info(f"{B_GREEN}--- State Completed ---\n")
 
     def start(self):
         """
