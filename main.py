@@ -1,63 +1,14 @@
-import config
-import logging
+from config import *
 import itertools
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Any
 import objects
 import csv
+import re
 from enum import Enum, auto
 from pyawr_get_marker_value import get_marker_value
 from pyawr_configure_schematic_element import configure_schematic_element
 from pyawr_loadpull_wizard import run_loadpull_wizard
-import re
-
-# ============================================================
-# LOGGING CONFIGURATION
-# Configures output to both console and a persistent log file.
-# Format: Date Time | Log Level | Message
-# ============================================================
-
-# Stil ve Sıfırlama
-RESET = "\033[0m"
-BOLD  = "\033[1m"
-UNDERLINE = "\033[4m"
-
-# Standart Renkler
-RED    = "\033[31m"
-GREEN  = "\033[32m"
-YELLOW = "\033[33m"
-BLUE   = "\033[34m"
-MAGENTA = "\033[35m"
-CYAN   = "\033[36m"
-
-# Parlak Renkler (Genelde daha iyi görünürler)
-B_RED    = "\033[91m"
-B_GREEN  = "\033[92m"
-B_YELLOW = "\033[93m"
-B_BLUE   = "\033[94m"
-B_MAGENTA = "\033[95m"
-B_CYAN   = "\033[96m"
-GRAY     = "\033[90m"
-
-# Arka Plan Renkleri
-BG_RED    = "\033[41m"
-BG_GREEN  = "\033[42m"
-BG_YELLOW = "\033[43m"
-BG_BLUE   = "\033[44m"
-
-logging.basicConfig(
-    level=logging.INFO,
-    format=f'{BOLD}{GRAY}[31;20m%(asctime)s | %(levelname)-1s |{RESET} %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S',
-    handlers=[
-        # File Handler: Overwrites the log file on each new run (mode='w').
-        logging.FileHandler("simulation.log", mode='w', encoding='utf-8'),
-
-        # Stream Handler: Outputs logs to the console standard output.
-        logging.StreamHandler()
-    ]
-)
-
-logger = logging.getLogger("awr_automation")
+from pyawr_configure_schematic_rf_frequency import configure_schematic_rf_frequency
 
 class PullType(Enum):
     """Enumeration defining the operation mode: Load Pull or Source Pull."""
@@ -92,11 +43,11 @@ class SimulationRunner:
         2. Measurement Columns (dynamically generated based on iteration count).
         """
         # 1. Retrieve State Variable Headers
-        state_headers = [var.name for var in config.STATE_VAR]
+        state_headers = [var.name for var in STATE_VAR]
 
         # 2. Generate Measurement Headers
         measure_headers = []
-        for i in range(config.ITERATION_COUNT):
+        for i in range(ITERATION_COUNT):
             iter_num = i + 1
             # Generate headers for Source Pull (SP) results
             measure_headers.extend([
@@ -120,9 +71,9 @@ class SimulationRunner:
 
             # Flush immediately to ensure headers are persisted
             self.csv_file.flush()
-            logger.info(f"{B_GREEN}CSV Initialized: {self.csv_filename}")
+            LOGGER.info(f"{B_GREEN}CSV Initialized: {self.csv_filename}")
         except IOError as e:
-            logger.error(f"{B_RED}Failed to initialize CSV file: {e}")
+            LOGGER.error(f"{B_RED}Failed to initialize CSV file: {e}")
             raise
 
     def _write_state_to_csv(self, state_values: Tuple[str, ...], iteration_results: List[objects.PullResult]):
@@ -147,17 +98,17 @@ class SimulationRunner:
         if self.csv_writer:
             self.csv_writer.writerow(row_data)
             self.csv_file.flush()
-            logger.info(f"{GREEN}Data saved to CSV -> State: {state_values}")
+            LOGGER.info(f"{GREEN}Data saved to CSV -> State: {state_values}")
 
     @staticmethod
     def _configure_schematic_element(element_name_exact: str, params: dict):
         out = configure_schematic_element(
-            schematic_title=config.SCHEMATIC_NAME,
+            schematic_title=SCHEMATIC_NAME,
             target_designator=element_name_exact,
             parameter_map=params,
         )
-        logger.info(f"      {MAGENTA}->[API][pyawr_configure_schematic_element] SENT:[schematic_title:({config.SCHEMATIC_NAME}) target_designator:({element_name_exact}) parameter_map:({params})]")
-        logger.info(f"      {CYAN}->[API][pyawr_configure_schematic_element] RETURN:[{out}]")
+        LOGGER.info(f"          {MAGENTA}->[API][pyawr_configure_schematic_element] SENT:[schematic_title:({SCHEMATIC_NAME}) target_designator:({element_name_exact}) parameter_map:({params})]")
+        LOGGER.info(f"          {CYAN}->[API][pyawr_configure_schematic_element] RETURN:[{out}]")
 
     @staticmethod
     def _get_graph_data(iteration: int, pull_type: PullType, marker: str) -> objects.PullResult:
@@ -185,8 +136,8 @@ class SimulationRunner:
         mag = numbers[1]
         ang = numbers[2]
 
-        logger.info(f"      {MAGENTA}->[API][awr_marker_reader] SENT:[graph_name:({graph_name}) marker:({marker})] ")
-        logger.info(f"      {CYAN}->[API][awr_marker_reader] RECEIVED:[point:({point}) mag:({mag}) ang:({ang})]")
+        LOGGER.info(f"          {MAGENTA}->[API][awr_marker_reader] SENT:[graph_name:({graph_name}) marker:({marker})] ")
+        LOGGER.info(f"          {CYAN}->[API][awr_marker_reader] RECEIVED:[point:({point}) mag:({mag}) ang:({ang})]")
         return objects.PullResult(
             iter_no=iteration,
             mode=pull_type_str,
@@ -222,7 +173,7 @@ class SimulationRunner:
         }
 
         run_loadpull_wizard(loadpull_wizard_options)
-        logger.info(f"      {MAGENTA}->[API][awr_loadpull_automation] SENT:[{loadpull_wizard_options}]")
+        LOGGER.info(f"          {MAGENTA}->[API][awr_loadpull_automation] SENT:[{loadpull_wizard_options}]")
 
     def _run_single_state_logic(self, state_values: Tuple[str, ...]):
         """
@@ -242,15 +193,18 @@ class SimulationRunner:
         # 1. Set State Variables in the Environment
         # ------------------------------------------------
         for idx, val in enumerate(state_values):
-            var_obj = config.STATE_VAR[idx]
-            logger.info(f"  {GREEN}SET STATE: {var_obj.name} = {val}")
-            for _, elem in enumerate(var_obj.element):
-                self._configure_schematic_element(
-                    element_name_exact=elem.name,
-                    params = {elem.arg: val}
-                )
+            var_obj = STATE_VAR[idx]
+            LOGGER.info(f"  {GREEN}SET STATE: {var_obj.name} = {val}")
 
-                # Actual AWR element update logic would be invoked here.
+            match var_obj.type:
+                case objects.StateType.ELEMENT:
+                    for _, elem in enumerate(var_obj.element):
+                        self._configure_schematic_element(
+                        element_name_exact=elem.name,
+                        params = {elem.arg: val}
+                     )
+                case objects.StateType.RF_FREQUENCY:
+                    configure_schematic_rf_frequency(schematic_name=SCHEMATIC_NAME, frequencies=float(val))
 
         # 2. Initialize Center Shifting Parameters
         # ------------------------------------------------
@@ -263,9 +217,9 @@ class SimulationRunner:
 
         # 3. Execute Iterative Pull Operations
         # ------------------------------------------------
-        for i in range(config.ITERATION_COUNT):
-            current_radius = config.RADIUS_LIST[i]
-            logger.info(f"{YELLOW}--- Iteration {i + 1} (Radius: {current_radius}) ---")
+        for i in range(ITERATION_COUNT):
+            current_radius = RADIUS_LIST[i]
+            LOGGER.info(f"  {YELLOW}--- Iteration {i + 1} (Radius: {current_radius}) ---")
 
             # === SOURCE PULL (SP) ===
             self._configure_schematic_element(
@@ -286,7 +240,7 @@ class SimulationRunner:
             sp_res = self._get_graph_data(
                 iteration=i+1,
                 pull_type=PullType.SOURCEPULL,
-                marker=config.MARKER
+                marker=MARKER
             )
             current_state_results.append(sp_res)
 
@@ -313,7 +267,7 @@ class SimulationRunner:
             lp_res = self._get_graph_data(
                 iteration=i+1,
                 pull_type=PullType.LOADPULL,
-                marker=config.MARKER
+                marker=MARKER
             )
             current_state_results.append(lp_res)
             # Update Center: The optimal point found in LP becomes the center for the next LP step.
@@ -323,52 +277,49 @@ class SimulationRunner:
         # 4. Finalize: Write Aggregated Results to CSV
         # ------------------------------------------------
         self._write_state_to_csv(state_values, current_state_results)
-
-        logger.info(f"{B_GREEN}--- State Completed ---\n")
+        LOGGER.info(f"{B_GREEN}--- State Completed ---\n")
 
     def start(self):
         """
         Main execution loop.
-
         1. Calculates the Cartesian product of all state variables to determine
            every unique combination (permutation) to be simulated.
         2. Iterates through these combinations and executes the simulation logic.
         3. Ensures the CSV file is closed properly upon completion or failure.
         """
         try:
-            for _, cons_obj in enumerate(config.STATE_CONS):
-                logger.info(f"SET CONSTANT: {cons_obj.name} = {cons_obj.value[0]}")
-                for _, elem in enumerate(cons_obj.element):
-                    self._configure_schematic_element(
-                        element_name_exact=elem.name,
-                        params={elem.arg: cons_obj.value[0]}
-                    )
+            for _, cons_obj in enumerate(STATE_CONS):
+                LOGGER.info(f"{BLUE}SET CONSTANT: {cons_obj.name} = {cons_obj.value[0]}")
+                match cons_obj.type:
+                    case objects.StateType.ELEMENT:
+                        for _, elem in enumerate(cons_obj.element):
+                            self._configure_schematic_element(
+                                element_name_exact=elem.name,
+                                params={elem.arg: cons_obj.value[0]}
+                            )
+                    case objects.StateType.RF_FREQUENCY:
+                        configure_schematic_rf_frequency(schematic_name=SCHEMATIC_NAME, frequencies=float(cons_obj.value[0]))
 
             # Generate all possible state combinations using Cartesian product
-            all_values_lists = [v.value for v in config.STATE_VAR]
+            all_values_lists = [v.value for v in STATE_VAR]
             all_combinations = list(itertools.product(*all_values_lists))
-
-            logger.info(f"Total States to Simulate: {len(all_combinations)}")
+            LOGGER.info(f"Total States to Simulate: {len(all_combinations)}")
 
             # Execute simulation for each combination
             for combo in all_combinations:
                 self._run_single_state_logic(state_values=combo)
-
-            logger.info("Simulation Completed Successfully.")
+            LOGGER.info(f"{BOLD}{B_GREEN}Simulation Completed Successfully.")
 
         finally:
             # Ensure resources are released
             if self.csv_file:
                 self.csv_file.close()
-                logger.info("CSV File Closed.")
-
+                LOGGER.info("CSV File Closed.")
 
 def main():
     """Entry point for the automation script."""
     sim = SimulationRunner()
     sim.start()
-
-
 
 if __name__ == "__main__":
     main()

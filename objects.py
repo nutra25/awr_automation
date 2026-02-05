@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import List, Tuple, Any, Union, Optional
 import math
 from decimal import Decimal
+from enum import Enum, auto
 
 
 # ============================================================
@@ -63,37 +64,73 @@ def generate_sweep_values(
 
 # ============================================================
 # DATA CLASSES
+class StateType(Enum):
+    """Enumeration defining the state type: ELEMENT or RF_FREQUENCY."""
+    ELEMENT = auto()
+    RF_FREQUENCY = auto()
+
 @dataclass
 class Element:
     name: str = ""
     arg: str = ""
 
+# --- State Class ---
 @dataclass(init=False)
 class State:
-    name: str = ""
-    element: List["Element"] = field(default_factory=list)
-    # Internal canonical representation (always a tuple of strings).
-    _value: Tuple[str, ...] = field(default_factory=tuple, repr=False)
+    """
+    Represents a simulation state.
+    Logic:
+    - If 'element' is provided and 'type' is missing -> Auto-detects as ELEMENT.
+    - If 'type' is RF_FREQUENCY -> Forces 'element' to be None.
+    """
+    name: str
+    type: StateType
+    element: Optional[List[Element]]
+    _value: Tuple[str, ...] = field(repr=False)
 
     def __init__(
         self,
         name: str = "",
         value: Union[str, int, float, List[Any], Tuple[Any, ...]] = "",
         element: List["Element"] | None = None,
+        type: StateType | None = None,  # Type is now optional
     ) -> None:
         self.name = name
-        self.element = element if element is not None else []
         self._value = normalize_to_tuple(value)
+
+        # LOGIC 1: Determine the StateType
+        if type is not None:
+            # Case A: User explicitly provided a type -> Use it.
+            self.type = type
+        else:
+            # Case B: User did not provide a type -> Infer from 'element'.
+            if element is not None:
+                self.type = StateType.ELEMENT
+            else:
+                self.type = StateType.ELEMENT # Default fallback if nothing is provided
+
+        # LOGIC 2: Configure the element list based on the determined type
+        if self.type == StateType.ELEMENT:
+            # If type is ELEMENT, ensure we have a list (empty if None provided)
+            self.element = element if element is not None else []
+        else:
+            # If type is RF_FREQUENCY (or others), force element to None
+            self.element = None
 
     @property
     def value(self) -> Tuple[str, ...]:
-        # Public interface: always return the canonical tuple representation.
+        """Public interface: always returns the canonical tuple representation."""
         return self._value
 
     @value.setter
     def value(self, val: Union[str, int, float, List[Any], Tuple[Any, ...]]) -> None:
-        # Normalize any assignment into the canonical tuple form.
+        """Normalize any assignment into the canonical tuple form."""
         self._value = normalize_to_tuple(val)
+
+    def __repr__(self):
+        # Custom repr for cleaner output (hide element if None)
+        el_str = f", element={self.element}" if self.element is not None else ""
+        return f"State(name='{self.name}', type={self.type.name}, value={self.value}{el_str})"
 
 @dataclass
 class PullResult:
