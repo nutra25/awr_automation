@@ -61,9 +61,9 @@ class SimulationRunner:
                 f"LP_Iter{iter_num}_Mag",
                 f"LP_Iter{iter_num}_Ang"
             ])
-
+        result_headers = ["PLoad (dbm)","PAE (%)","Source Mag","Source Ang","Load Mag","Load Ang"]
         # 3. Open File and Write Headers
-        full_headers = state_headers + measure_headers
+        full_headers = state_headers + result_headers + measure_headers
         try:
             self.csv_file = open(self.csv_filename, mode='w', newline='', encoding='utf-8')
             self.csv_writer = csv.writer(self.csv_file)
@@ -76,7 +76,7 @@ class SimulationRunner:
             LOGGER.error(f"{B_RED}Failed to initialize CSV file: {e}")
             raise
 
-    def _write_state_to_csv(self, state_values: Tuple[str, ...], iteration_results: List[objects.PullResult]):
+    def _write_state_to_csv(self, state_values: Tuple[str, ...], iteration_results: List[objects.PullResult], general_results: Tuple[str, ...]):
         """
         Flattens the simulation results for a single state and appends a row to the CSV.
 
@@ -88,6 +88,9 @@ class SimulationRunner:
 
         # Append State Values (e.g., "13.0", "30")
         row_data.extend(state_values)
+
+        # Append General Results
+        row_data.extend(general_results)
 
         # Append Measurement Results
         # Iterates through stored results and extracts Point, Magnitude, and Angle.
@@ -175,6 +178,42 @@ class SimulationRunner:
         run_loadpull_wizard(loadpull_wizard_options)
         LOGGER.info(f"          {MAGENTA}->[API][awr_loadpull_automation] SENT:[{loadpull_wizard_options}]")
 
+    def _find_best_iteration(self,iteration_results: List[objects.PullResult]):
+        best_iteration_lp = max((x for x in iteration_results if x.mode == "LP"), key=lambda x: float(x.point))
+        target_iter_no = best_iteration_lp.iter_no
+
+        best_iteration_sp = next(
+            (res for res in iteration_results if res.iter_no == target_iter_no and res.mode == "SP"),
+            None
+        )
+        self._configure_schematic_element(
+            element_name_exact="HBTUNER3.SourceTuner",
+            params={"Mag1": best_iteration_sp.mag, "Ang1": best_iteration_sp.ang}
+        )
+        self._configure_schematic_element(
+            element_name_exact="HBTUNER3.LoadTuner",
+            params={"Mag1": best_iteration_lp.mag, "Ang1": best_iteration_lp.ang}
+        )
+        pae_result = get_marker_value(
+            graph_title="Results",
+            marker_designator="m2",
+            perform_simulation=True,
+            toggle_enable = True
+        )
+        numbers = re.findall(r"-?\d+\.?\d*", pae_result)
+        numbers = [float(n) for n in numbers]
+        pae = numbers[1]
+        pload_result = get_marker_value(
+            graph_title="Results",
+            marker_designator="m1",
+            perform_simulation=True,
+            toggle_enable=True
+        )
+        numbers = re.findall(r"-?\d+\.?\d*", pload_result)
+        numbers = [float(n) for n in numbers]
+        pload = numbers[1]
+        general_results = (str(pload),str(pae),str(best_iteration_sp.mag),str(best_iteration_sp.ang),str(best_iteration_lp.mag),str(best_iteration_lp.ang))
+        return general_results
     def _run_single_state_logic(self, state_values: Tuple[str, ...]):
         """
         Executes the iterative simulation logic for a specific combination of state variables.
@@ -211,7 +250,6 @@ class SimulationRunner:
         # Start the first iteration from the center of the Smith Chart (or defined origin).
         prev_sp_mag, prev_sp_ang = "0", "0"
         prev_lp_mag, prev_lp_ang = "0", "0"
-
         # Local storage for results of this specific state
         current_state_results: List[objects.PullResult] = []
 
@@ -276,7 +314,8 @@ class SimulationRunner:
 
         # 4. Finalize: Write Aggregated Results to CSV
         # ------------------------------------------------
-        self._write_state_to_csv(state_values, current_state_results)
+        general_results = self._find_best_iteration(current_state_results)
+        self._write_state_to_csv(state_values, current_state_results,general_results)
         LOGGER.info(f"{B_GREEN}--- State Completed ---\n")
 
     def start(self):

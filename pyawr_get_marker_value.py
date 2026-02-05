@@ -3,7 +3,8 @@ import pyawr.mwoffice as mwoffice
 def get_marker_value(
         graph_title: str,
         marker_designator: str,
-        perform_simulation: bool = True
+        perform_simulation: bool = True,
+        toggle_enable: bool = False
 ) -> str:
     """
     Gets the raw data value text from a specific marker on a graph in AWR Microwave Office.
@@ -34,16 +35,7 @@ def get_marker_value(
     # 2. Access Project
     project_reference = application_session.Project
 
-    # 3. Perform Simulation (Optional)
-    if perform_simulation:
-        try:
-            simulator = project_reference.Simulator
-            # Check if simulation is needed or force analysis
-            simulator.Analyze()
-        except Exception as sim_error:
-            raise RuntimeError(f"Simulation execution failed: {sim_error}")
-
-    # 4. Get Target Graph
+    # 3. Get Target Graph
     target_graph = None
     # Iterate through graphs to find the matching name safely
     for graph in project_reference.Graphs:
@@ -53,6 +45,23 @@ def get_marker_value(
 
     if target_graph is None:
         raise RuntimeError(f"The graph '{graph_title}' could not be located in the active project.")
+
+    # Toggle Enable (Optional)
+    if toggle_enable:
+        for meas in target_graph.Measurements:
+            # Durumu ayarla (True = Enable, False = Disable)
+            # Kaynak: CMeasurement.Enabled [1]
+            meas.Enabled = True
+            print(f"{meas.Name} durumu: {meas.Enabled}")
+
+    # 4. Perform Simulation (Optional)
+    if perform_simulation:
+        try:
+            simulator = project_reference.Simulator
+            # Check if simulation is needed or force analysis
+            simulator.Analyze()
+        except Exception as sim_error:
+            raise RuntimeError(f"Simulation execution failed: {sim_error}")
 
     # 5. Locate the Marker
     target_marker = None
@@ -70,6 +79,11 @@ def get_marker_value(
     try:
         # CMarker object provides the 'DataValueText' property
         raw_text = target_marker.DataValueText
+        # Toggle Disable
+        if toggle_enable:
+            for meas in target_graph.Measurements:
+                meas.Enabled = False
+                print(f"{meas.Name} durumu: {meas.Enabled}")
         return str(raw_text) if raw_text is not None else ""
     except Exception as read_error:
         raise RuntimeError(f"Failed to read data from marker '{marker_designator}': {read_error}")

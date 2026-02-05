@@ -35,14 +35,14 @@ STATE_VAR = [
     ),
     objects.State(
         name="P_in (dBm)",
-        value="30",
+        value=generate_sweep_values(15,35,1),
         element=[
             objects.Element(name="PORT1.P1", arg="Pwr")
         ]
     ),
     objects.State(
         name="VGS (V)",
-        value="-2.745",
+        value=generate_sweep_values(-1.8,-3.6,0.1),
         element=[
             objects.Element(name="DCVS.VGS", arg="V"),
         ]
