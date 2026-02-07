@@ -109,4 +109,4 @@ class MultiObjectiveOptimizer:
 
 if __name__ == "__main__":
     optimizer = MultiObjectiveOptimizer()
-    optimizer.run(n_trials=40)
+    optimizer.run(n_trials=20)

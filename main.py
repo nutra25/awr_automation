@@ -287,7 +287,7 @@ class SimulationManager:
         measured_data, tuner_data = self._finalize_state(current_results)
         self.logger.log_state(state_values, current_results, measured_data, tuner_data)
 
-        # Footer Log: Indicates the completion of the state block
+        # Footer log: Indicates the completion of the state block
         logger.info(f"<<< STATE {state_idx} COMPLETE")
         return measured_data
 
