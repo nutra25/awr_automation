@@ -289,6 +289,7 @@ class SimulationManager:
 
         # Footer Log: Indicates the completion of the state block
         logger.info(f"<<< STATE {state_idx} COMPLETE")
+        return measured_data
 
     def start(self):
         """
