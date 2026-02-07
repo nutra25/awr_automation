@@ -1,364 +1,328 @@
-from config import *
-import itertools
-from typing import List, Tuple, Any
-import objects
 import csv
+import itertools
 import re
+import time
+from typing import List, Tuple, Any, Dict
 from enum import Enum, auto
+
+# Custom Configuration and Objects
+from config import *
+import objects
+
+# Logger
+from logger import LOGGER
+
+# AWR Automation Modules
 from pyawr_get_marker_value import get_marker_value
 from pyawr_configure_schematic_element import configure_schematic_element
 from pyawr_loadpull_wizard import run_loadpull_wizard
 from pyawr_configure_schematic_rf_frequency import configure_schematic_rf_frequency
 
+# Global Logger Instance
+logger = LOGGER
+
+
 class PullType(Enum):
-    """Enumeration defining the operation mode: Load Pull or Source Pull."""
+    """Enumeration defining the active impedance pull direction."""
     LOADPULL = auto()
     SOURCEPULL = auto()
 
-class SimulationRunner:
-    """
-    Orchestrates the automated Load Pull and Source Pull simulation process.
 
-    Responsibilities:
-    1. Generates all permutations of state variables (Frequency, Voltage, etc.).
-    2. Executes iterative Pull simulations for each state.
-    3. Manages data acquisition and logging to CSV.
+class AWRDriver:
+    """
+    Static interface wrapper for AWR Microwave Office API operations.
+    Isolates direct API calls from the main simulation logic.
+    """
+
+    @staticmethod
+    def configure_element(element_name: str, params: dict):
+        """Configures a schematic element with the provided parameters."""
+        configure_schematic_element(
+            schematic_title=SCHEMATIC_NAME,
+            target_designator=element_name,
+            parameter_map=params,
+        )
+
+    @staticmethod
+    def set_frequency(freq: float):
+        """Updates the system simulation frequency."""
+        configure_schematic_rf_frequency(
+            schematic_name=SCHEMATIC_NAME,
+            frequencies=freq
+        )
+
+    @staticmethod
+    def get_marker_data(graph: str, marker: str, toggle_enable: bool = False) -> List[float]:
+        """
+        Retrieves numerical data from a graph marker.
+
+        Returns:
+            List[float]: Extracted numerical values (e.g., [Mag, Ang]).
+                         Returns a list of zeros if retrieval fails.
+        """
+        raw_output = get_marker_value(
+            graph_title=graph,
+            marker_designator=marker,
+            perform_simulation=True,
+            toggle_enable=toggle_enable
+        )
+
+        if not raw_output:
+            return [0.0, 0.0, 0.0]
+
+        # Extract floating point numbers using regex
+        numbers = re.findall(r"-?\d+\.?\d*", raw_output)
+        return [float(n) for n in numbers]
+
+    @staticmethod
+    def run_wizard(options: dict):
+        """Triggers the Load Pull Wizard with the specified configuration."""
+        run_loadpull_wizard(options)
+
+
+class ResultsLogger:
+    """
+    Manages CSV file operations, including header generation and row persistence.
+    """
+
+    def __init__(self, filename=FILENAME):
+        self.filename = filename
+        self.headers = self._generate_headers()
+        self._init_file()
+
+    def _generate_headers(self) -> List[str]:
+        """Generates the complete list of column headers for the results file."""
+        headers = [var.name for var in STATE_VAR]
+        headers.extend([m["header"] for m in MEASUREMENT_CONFIG])
+        headers.extend(["Best_Source_Mag", "Best_Source_Ang", "Best_Load_Mag", "Best_Load_Ang"])
+
+        for i in range(ITERATION_COUNT):
+            for mode in ["SP", "LP"]:
+                prefix = f"{mode}_It{i + 1}"
+                headers.extend([f"{prefix}_Point", f"{prefix}_Mag", f"{prefix}_Ang"])
+
+        return headers
+
+    def _init_file(self):
+        """Creates the CSV file and writes the header row."""
+        try:
+            with open(self.filename, mode='w', newline='', encoding='utf-8') as f:
+                csv.writer(f).writerow(self.headers)
+            logger.info(f"Storage Initialized: '{self.filename}'")
+        except IOError as e:
+            logger.critical(f"Failed to initialize storage file: {e}")
+            raise
+
+    def log_state(self, state_values: Tuple, results: List[Any], measured_data: dict, best_tuner_data: Tuple):
+        """Appends a single simulation result row to the CSV."""
+        measured_row = [measured_data[m["header"]] for m in MEASUREMENT_CONFIG]
+        row = list(state_values) + measured_row + list(best_tuner_data)
+
+        for res in results:
+            row.extend([res.point, res.mag, res.ang])
+
+        try:
+            with open(self.filename, mode='a', newline='', encoding='utf-8') as f:
+                csv.writer(f).writerow(row)
+        except IOError as e:
+            logger.error(f"Failed to write data row: {e}")
+
+
+class SimulationManager:
+    """
+    Core logic controller for the multi-iteration load-pull simulation.
+    Handles state management, optimization loops, and result aggregation.
     """
 
     def __init__(self):
-        """Initializes the simulation runner and prepares the output CSV file."""
-        self.csv_filename = "simulation_results.csv"
-        self.csv_file = None
-        self.csv_writer = None
-
-        # Initialize the CSV file with dynamic headers
-        self._initialize_csv()
-
-    def _initialize_csv(self):
-        """
-        Creates the CSV file and writes the header row.
-
-        The header includes:
-        1. State Variable Names (from config).
-        2. Measurement Columns (dynamically generated based on iteration count).
-        """
-        # 1. Retrieve State Variable Headers
-        state_headers = [var.name for var in STATE_VAR]
-
-        # 2. Generate Measurement Headers
-        measure_headers = []
-        for i in range(ITERATION_COUNT):
-            iter_num = i + 1
-            # Generate headers for Source Pull (SP) results
-            measure_headers.extend([
-                f"SP_Iter{iter_num}_Point",
-                f"SP_Iter{iter_num}_Mag",
-                f"SP_Iter{iter_num}_Ang"
-            ])
-            # Generate headers for Load Pull (LP) results
-            measure_headers.extend([
-                f"LP_Iter{iter_num}_Point",
-                f"LP_Iter{iter_num}_Mag",
-                f"LP_Iter{iter_num}_Ang"
-            ])
-        result_headers = ["PLoad (dbm)","PAE (%)","Source Mag","Source Ang","Load Mag","Load Ang"]
-        # 3. Open File and Write Headers
-        full_headers = state_headers + result_headers + measure_headers
-        try:
-            self.csv_file = open(self.csv_filename, mode='w', newline='', encoding='utf-8')
-            self.csv_writer = csv.writer(self.csv_file)
-            self.csv_writer.writerow(full_headers)
-
-            # Flush immediately to ensure headers are persisted
-            self.csv_file.flush()
-            LOGGER.info(f"{B_GREEN}CSV Initialized: {self.csv_filename}")
-        except IOError as e:
-            LOGGER.error(f"{B_RED}Failed to initialize CSV file: {e}")
-            raise
-
-    def _write_state_to_csv(self, state_values: Tuple[str, ...], iteration_results: List[objects.PullResult], general_results: Tuple[str, ...]):
-        """
-        Flattens the simulation results for a single state and appends a row to the CSV.
-
-        Args:
-            state_values: Tuple containing values for the current state (e.g., Freq, Vgs).
-            iteration_results: List of result objects from the iterative pull process.
-        """
-        row_data = []
-
-        # Append State Values (e.g., "13.0", "30")
-        row_data.extend(state_values)
-
-        # Append General Results
-        row_data.extend(general_results)
-
-        # Append Measurement Results
-        # Iterates through stored results and extracts Point, Magnitude, and Angle.
-        for res in iteration_results:
-            row_data.extend([res.point, res.mag, res.ang])
-
-        # Write to file and flush buffer to protect against data loss during crashes
-        if self.csv_writer:
-            self.csv_writer.writerow(row_data)
-            self.csv_file.flush()
-            LOGGER.info(f"{GREEN}Data saved to CSV -> State: {state_values}")
-
-    @staticmethod
-    def _configure_schematic_element(element_name_exact: str, params: dict):
-        out = configure_schematic_element(
-            schematic_title=SCHEMATIC_NAME,
-            target_designator=element_name_exact,
-            parameter_map=params,
-        )
-        LOGGER.info(f"          {MAGENTA}->[API][pyawr_configure_schematic_element] SENT:[schematic_title:({SCHEMATIC_NAME}) target_designator:({element_name_exact}) parameter_map:({params})]")
-        LOGGER.info(f"          {CYAN}->[API][pyawr_configure_schematic_element] RETURN:[{out}]")
-
-    @staticmethod
-    def _get_graph_data(iteration: int, pull_type: PullType, marker: str) -> objects.PullResult:
-        """
-        Simulates the retrieval of marker data from the AWR environment.
-        Args:
-            iteration: Current iteration index.
-            pull_type: Operation mode (Source Pull or Load Pull).
-        Returns:
-            A PullResult object containing the simulated measured data.
-        """
-        pull_type_str = "SP" if pull_type == PullType.SOURCEPULL else "LP"
-        graph_name = f"it{iteration}" + "_source_pull" if pull_type == PullType.SOURCEPULL else f"it{iteration}" + "_load_pull"
-
-        out = get_marker_value(
-            graph_title=graph_name,
-            marker_designator=marker,
-            perform_simulation=True
-        )
-        numbers = re.findall(r"-?\d+\.?\d*", out)
-
-        numbers = [float(n) for n in numbers]
-
-        point = numbers[0]
-        mag = numbers[1]
-        ang = numbers[2]
-
-        LOGGER.info(f"          {MAGENTA}->[API][awr_marker_reader] SENT:[graph_name:({graph_name}) marker:({marker})] ")
-        LOGGER.info(f"          {CYAN}->[API][awr_marker_reader] RECEIVED:[point:({point}) mag:({mag}) ang:({ang})]")
-        return objects.PullResult(
-            iter_no=iteration,
-            mode=pull_type_str,
-            point=str(point),
-            mag=str(mag),
-            ang=str(ang)
-        )
-
-    @staticmethod
-    def _run_pull_sim( iteration: int, pull_type: PullType, radius: str, centermag: str, centerang: str):
-
-        if pull_type == PullType.SOURCEPULL:
-            lp_sweep_source1 = True
-            lp_sweep_load1 = False
-            datafilename_part = "source"
-        else:
-            lp_sweep_source1 = False
-            lp_sweep_load1 = True
-            datafilename_part = "load"
-
-        datafilename = f"{datafilename_part}_data_{iteration}"
-
-        loadpull_wizard_options: dict[str, Any] = {
-            "LP_MaxHarmonic": 1,
-            "LP_DataFileName": datafilename,
-            "LP_OverwriteDataFile": True,
-            "LP_Sweep_Source1": lp_sweep_source1,
-            "LP_Sweep_Load1": lp_sweep_load1,
-            f"LP_{datafilename_part.capitalize()}1_Density": "Extra fine",
-            f"LP_{datafilename_part.capitalize()}1_Radius": float(radius),
-            f"LP_{datafilename_part.capitalize()}1_CenterMagnitude": float(centermag),
-            f"LP_{datafilename_part.capitalize()}1_CenterAngle": float(centerang)
+        self.driver = AWRDriver()
+        self.logger = ResultsLogger()
+        self._state_handlers = {
+            objects.StateType.ELEMENT: self._handle_element_state,
+            objects.StateType.RF_FREQUENCY: self._handle_frequency_state,
         }
 
-        run_loadpull_wizard(loadpull_wizard_options)
-        LOGGER.info(f"          {MAGENTA}->[API][awr_loadpull_automation] SENT:[{loadpull_wizard_options}]")
+    def _handle_element_state(self, config_obj, value):
+        """Updates schematic elements based on the state variable."""
+        for elem in config_obj.element:
+            self.driver.configure_element(elem.name, {elem.arg: str(value)})
 
-    def _find_best_iteration(self,iteration_results: List[objects.PullResult]):
-        best_iteration_lp = max((x for x in iteration_results if x.mode == "LP"), key=lambda x: float(x.point))
-        target_iter_no = best_iteration_lp.iter_no
+    def _handle_frequency_state(self, config_obj, value):
+        """Updates the system frequency based on the state variable."""
+        self.driver.set_frequency(float(value))
 
-        best_iteration_sp = next(
-            (res for res in iteration_results if res.iter_no == target_iter_no and res.mode == "SP"),
-            None
-        )
-        self._configure_schematic_element(
-            element_name_exact="HBTUNER3.SourceTuner",
-            params={"Mag1": best_iteration_sp.mag, "Ang1": best_iteration_sp.ang}
-        )
-        self._configure_schematic_element(
-            element_name_exact="HBTUNER3.LoadTuner",
-            params={"Mag1": best_iteration_lp.mag, "Ang1": best_iteration_lp.ang}
-        )
-        pae_result = get_marker_value(
-            graph_title="Results",
-            marker_designator="m2",
-            perform_simulation=True,
-            toggle_enable = True
-        )
-        numbers = re.findall(r"-?\d+\.?\d*", pae_result)
-        numbers = [float(n) for n in numbers]
-        pae = numbers[1]
-        pload_result = get_marker_value(
-            graph_title="Results",
-            marker_designator="m1",
-            perform_simulation=True,
-            toggle_enable=True
-        )
-        numbers = re.findall(r"-?\d+\.?\d*", pload_result)
-        numbers = [float(n) for n in numbers]
-        pload = numbers[1]
-        general_results = (str(pload),str(pae),str(best_iteration_sp.mag),str(best_iteration_sp.ang),str(best_iteration_lp.mag),str(best_iteration_lp.ang))
-        return general_results
-    def _run_single_state_logic(self, state_values: Tuple[str, ...]):
+    def _apply_configuration(self, config_obj, value):
+        """Dispatches the configuration to the appropriate handler."""
+        handler = self._state_handlers.get(config_obj.type)
+        if handler:
+            handler(config_obj, value)
+        else:
+            logger.error(f"Unsupported StateType encountered: {config_obj.type}")
+
+    def _build_tuner_params(self, side: str, mag: Any, ang: Any, harmonic: int = 1) -> dict:
+        """Helper to format tuner parameters for AWR."""
+        cfg = TUNER_SETTINGS[side]
+        return {
+            f"{cfg['prefix_mag']}{harmonic}": str(mag),
+            f"{cfg['prefix_ang']}{harmonic}": str(ang)
+        }
+
+    def _run_iteration(self, iter_idx: int, pull_type: PullType,
+                       radius: float, sweep_center: Tuple[float, float],
+                       fixed_pos: Tuple[float, float]) -> objects.PullResult:
         """
-        Executes the iterative simulation logic for a specific combination of state variables.
-
-        Logic Flow:
-        1. Sets the environment state (Frequency, Bias, etc.).
-        2. Performs alternating Source Pull and Load Pull simulations.
-        3. Implements 'Center Shifting': The result of the previous pull becomes the
-           center for the next pull operation.
-        4. Logs all aggregated results to CSV upon completion.
-
-        Args:
-            state_values: Tuple of values defining the current simulation state.
+        Executes a single Source or Load pull iteration step.
+        Configures the tuners, runs the wizard, and selects the optimal point.
         """
+        is_source = (pull_type == PullType.SOURCEPULL)
+        h_idx = 1
 
-        # 1. Set State Variables in the Environment
-        # ------------------------------------------------
+        active_side = "SOURCE" if is_source else "LOAD"
+        fixed_side = "LOAD" if is_source else "SOURCE"
+
+        # Configure active side for sweeping and fixed side to hold position
+        active_params = self._build_tuner_params(active_side, "calcMag(50,0,z0)", "calcAng(50,0,z0)", h_idx)
+        fixed_params = self._build_tuner_params(fixed_side, fixed_pos[0], fixed_pos[1], h_idx)
+
+        self.driver.configure_element(TUNER_SETTINGS["SOURCE"]["name"], active_params if is_source else fixed_params)
+        self.driver.configure_element(TUNER_SETTINGS["LOAD"]["name"], fixed_params if is_source else active_params)
+
+        wizard_opts = {
+            "LP_MaxHarmonic": h_idx,
+            "LP_DataFileName": f"{active_side.lower()}_data_{iter_idx}",
+            "LP_OverwriteDataFile": True,
+            f"LP_Sweep_{active_side.capitalize()}{h_idx}": True,
+            f"LP_Sweep_{fixed_side.capitalize()}{h_idx}": False,
+            f"LP_{active_side.capitalize()}{h_idx}_Density": "Extra fine",
+            f"LP_{active_side.capitalize()}{h_idx}_Radius": radius,
+            f"LP_{active_side.capitalize()}{h_idx}_CenterMagnitude": sweep_center[0],
+            f"LP_{active_side.capitalize()}{h_idx}_CenterAngle": sweep_center[1]
+        }
+
+        self.driver.run_wizard(wizard_opts)
+
+        graph_name = GRAPH_NAME_PATTERN.format(iter=iter_idx, type=active_side.lower())
+        point, mag, ang = POINT_SELECTOR.select_point(self.driver, graph_name)
+
+        # Immediate float conversion ensures data integrity
+        return objects.PullResult(
+            iter_no=iter_idx,
+            mode="SP" if is_source else "LP",
+            point=point,
+            mag=float(mag),
+            ang=float(ang)
+        )
+
+    def _finalize_state(self, results: List[objects.PullResult]) -> Tuple[Dict, Tuple]:
+        """
+        Identifies the global maximum results, sets the tuners, and captures final measurements.
+        """
+        # Find the iteration with the highest performance metric
+        best_lp = max((x for x in results if x.mode == "LP"), key=lambda x: float(x.point))
+
+        # Find the corresponding Source Pull result
+        best_sp = next(res for res in results
+                       if res.iter_no == best_lp.iter_no and res.mode == "SP")
+
+        self.driver.configure_element(TUNER_SETTINGS["SOURCE"]["name"],
+                                      self._build_tuner_params("SOURCE", best_sp.mag, best_sp.ang))
+        self.driver.configure_element(TUNER_SETTINGS["LOAD"]["name"],
+                                      self._build_tuner_params("LOAD", best_lp.mag, best_lp.ang))
+
+        measured_data = {}
+        for m in MEASUREMENT_CONFIG:
+            data = self.driver.get_marker_data(m["graph"], m["marker"], toggle_enable=True)
+            val = str(data[m["index"]]) if len(data) > m["index"] else "NaN"
+            measured_data[m["header"]] = val
+
+        tuner_data = (str(best_sp.mag), str(best_sp.ang),
+                      str(best_lp.mag), str(best_lp.ang))
+
+        return measured_data, tuner_data
+
+    def run_state(self, state_values: Tuple, state_idx: int = 1, total_states: int = 1):
+        """
+        Executes the optimization loop for a single combination of state variables.
+        """
+        # Header Log: Indicates the start of a new state block
+        logger.info(f">>> PROCESSING STATE {state_idx}/{total_states}: {state_values}")
+
         for idx, val in enumerate(state_values):
-            var_obj = STATE_VAR[idx]
-            LOGGER.info(f"  {GREEN}SET STATE: {var_obj.name} = {val}")
+            self._apply_configuration(STATE_VAR[idx], val)
 
-            match var_obj.type:
-                case objects.StateType.ELEMENT:
-                    for _, elem in enumerate(var_obj.element):
-                        self._configure_schematic_element(
-                        element_name_exact=elem.name,
-                        params = {elem.arg: val}
-                     )
-                case objects.StateType.RF_FREQUENCY:
-                    configure_schematic_rf_frequency(schematic_name=SCHEMATIC_NAME, frequencies=float(val))
+        current_results = []
+        pos = {PullType.SOURCEPULL: (0.0, 0.0), PullType.LOADPULL: (0.0, 0.0)}
 
-        # 2. Initialize Center Shifting Parameters
-        # ------------------------------------------------
-        # Start the first iteration from the center of the Smith Chart (or defined origin).
-        prev_sp_mag, prev_sp_ang = "0", "0"
-        prev_lp_mag, prev_lp_ang = "0", "0"
-        # Local storage for results of this specific state
-        current_state_results: List[objects.PullResult] = []
-
-        # 3. Execute Iterative Pull Operations
-        # ------------------------------------------------
         for i in range(ITERATION_COUNT):
-            current_radius = RADIUS_LIST[i]
-            LOGGER.info(f"  {YELLOW}--- Iteration {i + 1} (Radius: {current_radius}) ---")
+            radius = float(RADIUS_LIST[i])
+            iter_num = i + 1
 
-            # === SOURCE PULL (SP) ===
-            self._configure_schematic_element(
-                element_name_exact="HBTUNER3.SourceTuner",
-                params={"Mag1": "calcMag(50,0,z0)", "Ang1": "calcAng(50,0,z0)"}
-            )
-            self._configure_schematic_element(
-                element_name_exact="HBTUNER3.LoadTuner",
-                params={"Mag1": prev_lp_mag, "Ang1": prev_lp_ang}
-            )
-            self._run_pull_sim(
-                iteration=i+1,
-                pull_type=PullType.SOURCEPULL,
-                radius=current_radius,
-                centermag=prev_sp_mag,
-                centerang=prev_sp_ang
-            )
-            sp_res = self._get_graph_data(
-                iteration=i+1,
-                pull_type=PullType.SOURCEPULL,
-                marker=MARKER
-            )
-            current_state_results.append(sp_res)
+            # Sub-header Log: Indicates the start of an iteration within the state
+            logger.info(f"   > Iteration {iter_num}/{ITERATION_COUNT} (Radius: {radius})")
 
-            # Update Center: The optimal point found in SP becomes the center for the next SP step.
-            prev_sp_mag = sp_res.mag
-            prev_sp_ang = sp_res.ang
+            # Source Pull Step
+            sp_res = self._run_iteration(
+                iter_num, PullType.SOURCEPULL, radius,
+                pos[PullType.SOURCEPULL], pos[PullType.LOADPULL]
+            )
+            current_results.append(sp_res)
+            pos[PullType.SOURCEPULL] = (float(sp_res.mag), float(sp_res.ang))
 
-            # === LOAD PULL (LP) ===
-            self._configure_schematic_element(
-                element_name_exact="HBTUNER3.SourceTuner",
-                params={"Mag1": prev_sp_mag, "Ang1": prev_sp_ang}
-            )
-            self._configure_schematic_element(
-                element_name_exact="HBTUNER3.LoadTuner",
-                params={"Mag1": "calcMag(50,0,z0)", "Ang1": "calcAng(50,0,z0)"}
-            )
-            self._run_pull_sim(
-                iteration=i+1,
-                pull_type=PullType.LOADPULL,
-                radius=current_radius,
-                centermag=prev_lp_mag,
-                centerang=prev_lp_ang
-            )
-            lp_res = self._get_graph_data(
-                iteration=i+1,
-                pull_type=PullType.LOADPULL,
-                marker=MARKER
-            )
-            current_state_results.append(lp_res)
-            # Update Center: The optimal point found in LP becomes the center for the next LP step.
-            prev_lp_mag = lp_res.mag
-            prev_lp_ang = lp_res.ang
+            # Result Log: Bullet point style for clarity
+            logger.info(f"     * SP Result: Mag [{sp_res.mag:.3f}], Ang [{sp_res.ang:.1f}]")
 
-        # 4. Finalize: Write Aggregated Results to CSV
-        # ------------------------------------------------
-        general_results = self._find_best_iteration(current_state_results)
-        self._write_state_to_csv(state_values, current_state_results,general_results)
-        LOGGER.info(f"{B_GREEN}--- State Completed ---\n")
+            # Load Pull Step
+            lp_res = self._run_iteration(
+                iter_num, PullType.LOADPULL, radius,
+                pos[PullType.LOADPULL], pos[PullType.SOURCEPULL]
+            )
+            current_results.append(lp_res)
+            pos[PullType.LOADPULL] = (float(lp_res.mag), float(lp_res.ang))
+
+            # Result Log: Bullet point style for clarity
+            logger.info(f"     * LP Result: Mag [{lp_res.mag:.3f}], Ang [{lp_res.ang:.1f}]")
+
+        logger.debug(f"   > Finalizing state configuration...")
+
+        measured_data, tuner_data = self._finalize_state(current_results)
+        self.logger.log_state(state_values, current_results, measured_data, tuner_data)
+
+        # Footer Log: Indicates the completion of the state block
+        logger.info(f"<<< STATE {state_idx} COMPLETE")
 
     def start(self):
         """
-        Main execution loop.
-        1. Calculates the Cartesian product of all state variables to determine
-           every unique combination (permutation) to be simulated.
-        2. Iterates through these combinations and executes the simulation logic.
-        3. Ensures the CSV file is closed properly upon completion or failure.
+        Main entry point. Generates the state matrix and starts the simulation sequence.
         """
-        try:
-            for _, cons_obj in enumerate(STATE_CONS):
-                LOGGER.info(f"{BLUE}SET CONSTANT: {cons_obj.name} = {cons_obj.value[0]}")
-                match cons_obj.type:
-                    case objects.StateType.ELEMENT:
-                        for _, elem in enumerate(cons_obj.element):
-                            self._configure_schematic_element(
-                                element_name_exact=elem.name,
-                                params={elem.arg: cons_obj.value[0]}
-                            )
-                    case objects.StateType.RF_FREQUENCY:
-                        configure_schematic_rf_frequency(schematic_name=SCHEMATIC_NAME, frequencies=float(cons_obj.value[0]))
+        logger.info("Starting Simulation Sequence")
 
-            # Generate all possible state combinations using Cartesian product
-            all_values_lists = [v.value for v in STATE_VAR]
-            all_combinations = list(itertools.product(*all_values_lists))
-            LOGGER.info(f"Total States to Simulate: {len(all_combinations)}")
+        for constant in STATE_CONS:
+            self._apply_configuration(constant, constant.value[0])
 
-            # Execute simulation for each combination
-            for combo in all_combinations:
-                self._run_single_state_logic(state_values=combo)
-            LOGGER.info(f"{BOLD}{B_GREEN}Simulation Completed Successfully.")
+        combinations = list(itertools.product(*[v.value for v in STATE_VAR]))
+        total_combos = len(combinations)
 
-        finally:
-            # Ensure resources are released
-            if self.csv_file:
-                self.csv_file.close()
-                LOGGER.info("CSV File Closed.")
+        logger.info(f"State Matrix Generated: {total_combos} unique combinations.")
+
+        start_time = time.time()
+
+        for idx, combo in enumerate(combinations):
+            self.run_state(combo, state_idx=idx + 1, total_states=total_combos)
+
+        elapsed_time = time.time() - start_time
+        logger.info(f"Simulation Sequence Completed in {elapsed_time:.2f} seconds.")
+
 
 def main():
-    """Entry point for the automation script."""
-    sim = SimulationRunner()
-    sim.start()
+    try:
+        engine = SimulationManager()
+        engine.start()
+    except KeyboardInterrupt:
+        logger.warning("Simulation interrupted by user.")
+    except Exception as e:
+        logger.critical(f"Unhandled Exception in Main Loop: {e}")
+        raise
+
 
 if __name__ == "__main__":
     main()

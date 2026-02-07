@@ -1,4 +1,6 @@
 import pyawr.mwoffice as mwoffice
+from logger import LOGGER
+
 
 def get_marker_value(
         graph_title: str,
@@ -7,63 +9,68 @@ def get_marker_value(
         toggle_enable: bool = False
 ) -> str:
     """
-    Gets the raw data value text from a specific marker on a graph in AWR Microwave Office.
+    Retrieves the data value from a specific marker on a graph in AWR Microwave Office.
 
-    This function connects to the active AWR session, optionally triggers a simulation,
-    locates the specified graph and marker, and returns the marker's text value.
+    This function connects to the active project, locates the specified graph and marker,
+    and optionally runs a simulation to ensure data is up-to-date. The process is logged
+    using a structured tree format.
 
     Args:
-        graph_title (str): The case-sensitive name of the graph containing the marker.
-        marker_designator (str): The name of the marker (e.g., "m1").
-        perform_simulation (bool): If True, triggers a simulation before reading the value.
-                                   Defaults to True.
+        graph_title (str): The name of the graph containing the marker.
+        marker_designator (str): The name or ID of the marker to read (e.g., 'm1').
+        perform_simulation (bool): If True, triggers a simulation analysis before reading.
+        toggle_enable (bool): If True, temporarily enables measurements for this graph
+                              before simulation and disables them afterwards.
 
     Returns:
-        str: The raw text string of the marker's value. Returns an empty string if the
-             marker is found but has no value.
+        str: The raw text value of the marker. Returns an empty string if reading fails.
 
     Raises:
-        RuntimeError: If the application session cannot be established, simulation fails, or the marker/graph is not found.
+        RuntimeError: If AWR connection fails, the graph/marker is missing, or simulation fails.
     """
+    LOGGER.info(f"Retrieving Marker Data: '{marker_designator}' from '{graph_title}'")
 
-    # 1. Initialize Application Session
     try:
         application_session = mwoffice.CMWOffice()
     except Exception as connection_exception:
-        raise RuntimeError(f"Failed to initialize AWR Microwave Office session: {connection_exception}")
+        LOGGER.critical(f"  └─ Failed to connect to AWR: {connection_exception}")
+        raise RuntimeError(f"AWR Session Initialization Error: {connection_exception}")
 
-    # 2. Access Project
     project_reference = application_session.Project
+    LOGGER.debug(f"  ├─ Connected to active project.")
 
-    # 3. Get Target Graph
     target_graph = None
-    # Iterate through graphs to find the matching name safely
     for graph in project_reference.Graphs:
         if graph.Name == graph_title:
             target_graph = graph
             break
 
     if target_graph is None:
-        raise RuntimeError(f"The graph '{graph_title}' could not be located in the active project.")
+        LOGGER.error(f"  └─ Graph NOT found: '{graph_title}'")
+        raise RuntimeError(f"Graph '{graph_title}' not found.")
 
-    # Toggle Enable (Optional)
+    LOGGER.debug(f"  ├─ Graph located: {target_graph.Name}")
+
+    # Optionally enable measurements for this graph to ensure they are calculated during simulation
     if toggle_enable:
+        LOGGER.debug(f"  ├─ Enabling measurements for graph...")
         for meas in target_graph.Measurements:
-            # Durumu ayarla (True = Enable, False = Disable)
-            # Kaynak: CMeasurement.Enabled [1]
             meas.Enabled = True
-            print(f"{meas.Name} durumu: {meas.Enabled}")
 
-    # 4. Perform Simulation (Optional)
     if perform_simulation:
         try:
+            # Simulation steps are logged as DEBUG to keep the console output clean
+            LOGGER.debug("  ├── Starting Simulation (Analyze)...")
             simulator = project_reference.Simulator
-            # Check if simulation is needed or force analysis
             simulator.Analyze()
+            LOGGER.debug("  ├── Simulation Completed.")
         except Exception as sim_error:
+            LOGGER.critical(f"  └─ Simulation FAILED: {sim_error}")
             raise RuntimeError(f"Simulation execution failed: {sim_error}")
+    else:
+        LOGGER.debug(f"  ├─ Simulation skipped (perform_simulation=False).")
 
-    # 5. Locate the Marker
+    # Locate the marker using case-insensitive matching
     target_marker = None
     target_designator_clean = marker_designator.strip().lower()
 
@@ -73,18 +80,25 @@ def get_marker_value(
             break
 
     if target_marker is None:
-        raise RuntimeError(f"Marker '{marker_designator}' was not found on graph '{graph_title}'.")
+        LOGGER.error(f"  └─ Marker '{marker_designator}' NOT found on graph.")
+        raise RuntimeError(f"Marker '{marker_designator}' missing.")
 
-    # 6. Get Data Value
     try:
-        # CMarker object provides the 'DataValueText' property
         raw_text = target_marker.DataValueText
-        # Toggle Disable
+
+        # Revert measurement enablement if it was toggled on earlier
         if toggle_enable:
+            LOGGER.debug(f"  ├─ Disabling measurements...")
             for meas in target_graph.Measurements:
                 meas.Enabled = False
-                print(f"{meas.Name} durumu: {meas.Enabled}")
-        return str(raw_text) if raw_text is not None else ""
-    except Exception as read_error:
-        raise RuntimeError(f"Failed to read data from marker '{marker_designator}': {read_error}")
 
+        if raw_text:
+            LOGGER.info(f"  └── Value: {raw_text}")
+        else:
+            LOGGER.warning(f"  └── Marker value is empty.")
+
+        return str(raw_text) if raw_text is not None else ""
+
+    except Exception as read_error:
+        LOGGER.error(f"  └─ Error reading marker data: {read_error}")
+        raise RuntimeError(f"Failed to read data: {read_error}")

@@ -1,7 +1,7 @@
 import objects
 from objects import generate_sweep_values
-import logging
-
+from lp_iteration_point_selector import MaxMarkerSelector, TradeOffSelector
+from lp_state_result_selector import MaxPointStrategy
 ##################################################
 # SCRIPT SETTING !DONT_TOUCH!
 
@@ -35,14 +35,14 @@ STATE_VAR = [
     ),
     objects.State(
         name="P_in (dBm)",
-        value=generate_sweep_values(15,35,1),
+        value=generate_sweep_values(31,31,1),
         element=[
             objects.Element(name="PORT1.P1", arg="Pwr")
         ]
     ),
     objects.State(
         name="VGS (V)",
-        value=generate_sweep_values(-1.8,-3.6,0.1),
+        value=generate_sweep_values(-3,-3,0.25),
         element=[
             objects.Element(name="DCVS.VGS", arg="V"),
         ]
@@ -52,55 +52,53 @@ STATE_VAR = [
 
 ##################################################
 # ITERATION SETTINGS
+POINT_SELECTOR = MaxMarkerSelector(marker_name="m2")
+FINAL_STRATEGY = MaxPointStrategy()
 ITERATION_COUNT: int = 3
 RADIUS_LIST: tuple = ("0.99", "0.40", "0.30")
-MARKER: str = "m2"
+GRAPH_NAME_PATTERN = "it{iter}_{type}_pull" # {iter}: Iteration number (1, 2...) {type}: "source" or "load"
+WIZARD_DEFAULTS = {
+    "LP_MaxHarmonic": 1,
+    "LP_Density": "Extra fine",
+    "LP_OverwriteDataFile": True,
+}
+TUNER_SETTINGS = {
+    "SOURCE": {
+        "name": "HBTUNER3.SourceTuner",
+        "prefix_mag": "Mag", # Mag1, Mag2... şeklinde artacak
+        "prefix_ang": "Ang",
+        "harmonics_to_track": [1] # Şimdilik sadece ana frekans
+    },
+    "LOAD": {
+        "name": "HBTUNER3.LoadTuner",
+        "prefix_mag": "Mag",
+        "prefix_ang": "Ang",
+        "harmonics_to_track": [1]
+    }
+}
 ##################################################
 
 ##################################################
-#LOGGER STYLES AND COLORS
-# STYLE AND RESET
-RESET = "\033[0m"
-BOLD  = "\033[1m"
-UNDERLINE = "\033[4m"
-# STANDART COLORS
-RED    = "\033[31m"
-GREEN  = "\033[32m"
-YELLOW = "\033[33m"
-BLUE   = "\033[34m"
-MAGENTA = "\033[35m"
-CYAN   = "\033[36m"
-# BRIGHT COLORS
-B_RED    = "\033[91m"
-B_GREEN  = "\033[92m"
-B_YELLOW = "\033[93m"
-B_BLUE   = "\033[94m"
-B_MAGENTA = "\033[95m"
-B_CYAN   = "\033[96m"
-GRAY     = "\033[90m"
-# BACKGROUND COLORS
-BG_RED    = "\033[41m"
-BG_GREEN  = "\033[42m"
-BG_YELLOW = "\033[43m"
-BG_BLUE   = "\033[44m"
+# MEASUREMENT_CONFIG
+MEASUREMENT_CONFIG = [
+    {
+        "header": "PLoad [dBm]",
+        "graph": "Results",
+        "marker": "m1",
+        "index": 1
+    },
+    {
+        "header": "PAE [%]",
+        "graph": "Results",
+        "marker": "m2",
+        "index": 1
+    }
+]
 ##################################################
 
 ##################################################
-# LOGGING CONFIGURATION
-# Configures output to both console and a persistent log file.
-# Format: Date Time | Log Level | Message
-
-logging.basicConfig(
-    level=logging.INFO,
-    format=f'{BOLD}{GRAY}[31;20m%(asctime)s | %(levelname)-1s |{RESET} %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S',
-    handlers=[
-        # File Handler: Overwrites the log file on each new run (mode='w').
-        logging.FileHandler("simulation.log", mode='w', encoding='utf-8'),
-
-        # Stream Handler: Outputs logs to the console standard output.
-        logging.StreamHandler()
-    ]
-)
-LOGGER = logging.getLogger("awr_automation")
+# RESULT DATA SAVING SETTINGS
+FILENAME: str = "simulation_results.csv"
 ##################################################
+
+
