@@ -1,8 +1,7 @@
 import csv
 import itertools
-import re
 import time
-from typing import List, Tuple, Any, Dict
+from typing import List, Tuple, Any, Dict, Protocol
 from enum import Enum, auto
 
 # Custom Configuration and Objects
@@ -12,11 +11,10 @@ import objects
 # Logger
 from logger import LOGGER
 
-# AWR Automation Modules
-from pyawr_get_marker_value import get_marker_value
-from pyawr_configure_schematic_element import configure_schematic_element
-from pyawr_loadpull_wizard import run_loadpull_wizard
-from pyawr_configure_schematic_rf_frequency import configure_schematic_rf_frequency
+# Drivers
+from awr import AWRDriver
+from test import TESTDriver
+
 
 # Global Logger Instance
 logger = LOGGER
@@ -26,58 +24,6 @@ class PullType(Enum):
     """Enumeration defining the active impedance pull direction."""
     LOADPULL = auto()
     SOURCEPULL = auto()
-
-
-class AWRDriver:
-    """
-    Static interface wrapper for AWR Microwave Office API operations.
-    Isolates direct API calls from the main simulation logic.
-    """
-
-    @staticmethod
-    def configure_element(element_name: str, params: dict):
-        """Configures a schematic element with the provided parameters."""
-        configure_schematic_element(
-            schematic_title=SCHEMATIC_NAME,
-            target_designator=element_name,
-            parameter_map=params,
-        )
-
-    @staticmethod
-    def set_frequency(freq: float):
-        """Updates the system simulation frequency."""
-        configure_schematic_rf_frequency(
-            schematic_name=SCHEMATIC_NAME,
-            frequencies=freq
-        )
-
-    @staticmethod
-    def get_marker_data(graph: str, marker: str, toggle_enable: bool = False) -> List[float]:
-        """
-        Retrieves numerical data from a graph marker.
-
-        Returns:
-            List[float]: Extracted numerical values (e.g., [Mag, Ang]).
-                         Returns a list of zeros if retrieval fails.
-        """
-        raw_output = get_marker_value(
-            graph_title=graph,
-            marker_designator=marker,
-            perform_simulation=True,
-            toggle_enable=toggle_enable
-        )
-
-        if not raw_output:
-            return [0.0, 0.0, 0.0]
-
-        # Extract floating point numbers using regex
-        numbers = re.findall(r"-?\d+\.?\d*", raw_output)
-        return [float(n) for n in numbers]
-
-    @staticmethod
-    def run_wizard(options: dict):
-        """Triggers the Load Pull Wizard with the specified configuration."""
-        run_loadpull_wizard(options)
 
 
 class ResultsLogger:
@@ -127,6 +73,22 @@ class ResultsLogger:
         except IOError as e:
             logger.error(f"Failed to write data row: {e}")
 
+class ISimulatorDriver(Protocol):
+    """
+    A protocol for simulation drivers.
+    Any driver have to obey these rules.
+    """
+    def configure_element(self, element_name: str, params: Dict[str, Any]) -> None:
+        ...
+
+    def set_frequency(self, freq: float) -> None:
+        ...
+
+    def get_marker_data(self, graph: str, marker: str, toggle_enable: bool = False) -> List[float]:
+        ...
+
+    def run_wizard(self, options: Dict[str, Any]) -> None:
+        ...
 
 class SimulationManager:
     """
@@ -134,8 +96,8 @@ class SimulationManager:
     Handles state management, optimization loops, and result aggregation.
     """
 
-    def __init__(self):
-        self.driver = AWRDriver()
+    def __init__(self, driver: ISimulatorDriver):
+        self.driver = driver
         self.logger = ResultsLogger()
         self._state_handlers = {
             objects.StateType.ELEMENT: self._handle_element_state,
@@ -316,7 +278,9 @@ class SimulationManager:
 
 def main():
     try:
-        engine = SimulationManager()
+        #selected_driver = AWRDriver()
+        selected_driver = TESTDriver()
+        engine = SimulationManager(driver= selected_driver)
         engine.start()
     except KeyboardInterrupt:
         logger.warning("Simulation interrupted by user.")
