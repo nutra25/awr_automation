@@ -1,6 +1,6 @@
 import objects
 from objects import generate_sweep_values
-from lp_iteration_point_selector import MaxMarkerSelector, TradeOffSelector
+from lp_iteration_point_selector import MaxMarkerSelector, BroadbandOptimumSelector
 from lp_state_result_selector import MaxPointStrategy
 ##################################################
 # SCRIPT SETTING !DONT_TOUCH!
@@ -16,6 +16,11 @@ SCHEMATIC_NAME: str = "VDS40_Load_Pull"
 # STATE CONSTANTS
 STATE_CONS = [
     objects.State(
+        name="Frekans (GHz)",
+        value=generate_sweep_values(12.7,13.25,0.05),
+        type=objects.StateType.RF_FREQUENCY,
+    ),
+    objects.State(
         name="VDS",
         value="40",
         element=[
@@ -29,20 +34,15 @@ STATE_CONS = [
 # STATE VARIABLES
 STATE_VAR = [
     objects.State(
-        name="Frekans (GHz)",
-        value="13.1",
-        type=objects.StateType.RF_FREQUENCY,
-    ),
-    objects.State(
         name="P_in (dBm)",
-        value=generate_sweep_values(31,31,1),
+        value="30",
         element=[
             objects.Element(name="PORT1.P1", arg="Pwr")
         ]
     ),
     objects.State(
         name="VGS (V)",
-        value=generate_sweep_values(-3,-3,0.25),
+        value="-2.9",
         element=[
             objects.Element(name="DCVS.VGS", arg="V"),
         ]
@@ -52,10 +52,10 @@ STATE_VAR = [
 
 ##################################################
 # ITERATION SETTINGS
-POINT_SELECTOR = MaxMarkerSelector(marker_name="m2")
+POINT_SELECTOR = BroadbandOptimumSelector()
 FINAL_STRATEGY = MaxPointStrategy()
-ITERATION_COUNT: int = 3
-RADIUS_LIST: tuple = ("0.99", "0.40", "0.30")
+ITERATION_COUNT: int = 2
+RADIUS_LIST: tuple = ("0.99", "0.60", "0.30")
 GRAPH_NAME_PATTERN = "it{iter}_{type}_pull" # {iter}: Iteration number (1, 2...) {type}: "source" or "load"
 WIZARD_DEFAULTS = {
     "LP_MaxHarmonic": 1,

@@ -1,7 +1,7 @@
 import csv
 import itertools
 import time
-from typing import List, Tuple, Any, Dict, Protocol
+from typing import List, Tuple, Any, Dict, Protocol, Union
 from enum import Enum, auto
 
 # Custom Configuration and Objects
@@ -13,7 +13,7 @@ from logger import LOGGER
 
 # Drivers
 from awr import AWRDriver
-from test import TESTDriver
+#from test import TESTDriver
 
 
 # Global Logger Instance
@@ -81,7 +81,7 @@ class ISimulatorDriver(Protocol):
     def configure_element(self, element_name: str, params: Dict[str, Any]) -> None:
         ...
 
-    def set_frequency(self, freq: float) -> None:
+    def set_frequency(self, freq: Union[float, List[float]]) -> None:
         ...
 
     def get_marker_data(self, graph: str, marker: str, toggle_enable: bool = False) -> List[float]:
@@ -111,7 +111,12 @@ class SimulationManager:
 
     def _handle_frequency_state(self, config_obj, value):
         """Updates the system frequency based on the state variable."""
-        self.driver.set_frequency(float(value))
+        if isinstance(value, (list, tuple)):
+            freq_val = [float(v) for v in value]
+        else:
+            freq_val = float(value)
+            
+        self.driver.set_frequency(freq_val)
 
     def _apply_configuration(self, config_obj, value):
         """Dispatches the configuration to the appropriate handler."""
@@ -260,7 +265,17 @@ class SimulationManager:
         logger.info("Starting Simulation Sequence")
 
         for constant in STATE_CONS:
-            self._apply_configuration(constant, constant.value[0])
+            val = constant.value
+            
+            # Gelen veri bir liste veya tuple ise uzunluğuna bak
+            if isinstance(val, (list, tuple)):
+                if len(val) == 1:
+                    actual_val = val[0]
+                else:
+                    actual_val = val
+            else:
+                actual_val = val
+            self._apply_configuration(constant, actual_val)
 
         combinations = list(itertools.product(*[v.value for v in STATE_VAR]))
         total_combos = len(combinations)
@@ -278,8 +293,8 @@ class SimulationManager:
 
 def main():
     try:
-        #selected_driver = AWRDriver()
-        selected_driver = TESTDriver()
+        selected_driver = AWRDriver()
+        #selected_driver = TESTDriver()
         engine = SimulationManager(driver= selected_driver)
         engine.start()
     except KeyboardInterrupt:
