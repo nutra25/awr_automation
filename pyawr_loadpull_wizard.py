@@ -1,10 +1,9 @@
-import pyawr.mwoffice as mwoffice
 from typing import Dict, Any
 import time
 from logger import LOGGER
 
 
-def run_loadpull_wizard(config_params: Dict[str, Any]):
+def run_loadpull_wizard(app_instance, config_params: Dict[str, Any]):
     """
     Executes the AWR Load Pull Wizard automation sequence.
 
@@ -26,8 +25,7 @@ def run_loadpull_wizard(config_params: Dict[str, Any]):
     LOGGER.info("Starting Load Pull Wizard Automation Sequence")
 
     try:
-        app = mwoffice.CMWOffice()
-        project = app.Project
+        project = app_instance.Project
 
         # Attempt to locate the wizard definition by name or its known GUID
         LOAD_PULL_GUID = "{85CA0552-53C3-404C-A0E9-3ECFF0D5D261}"

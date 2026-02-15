@@ -1,4 +1,5 @@
 # AWR Automation Modules
+import pyawr.mwoffice as mwoffice
 from pyawr_get_marker_value import get_marker_value
 from pyawr_configure_schematic_element import configure_schematic_element
 from pyawr_loadpull_wizard import run_loadpull_wizard
@@ -15,9 +16,19 @@ class AWRDriver:
     Isolates direct API calls from the main simulation logic.
     """
 
+    def __init__(self):
+        """Connecting to AWR"""
+        try:
+            self.app = mwoffice.CMWOffice()
+            print("AWR Bağlantısı Başarılı.")
+        except Exception as e:
+            print(f"Bağlantı hatası: {e}")
+            raise
+
     def configure_element(self, element_name: str, params: Dict[str, Any]) -> None:
         """Configures a schematic element with the provided parameters."""
         configure_schematic_element(
+            self.app,
             schematic_title=SCHEMATIC_NAME,
             target_designator=element_name,
             parameter_map=params,
@@ -26,6 +37,7 @@ class AWRDriver:
     def set_frequency(self, freq: float) -> None:
         """Updates the system simulation frequency."""
         configure_schematic_rf_frequency(
+            self.app,
             schematic_name=SCHEMATIC_NAME,
             frequencies=freq
         )
@@ -39,6 +51,7 @@ class AWRDriver:
                          Returns a list of zeros if retrieval fails.
         """
         raw_output = get_marker_value(
+            self.app,
             graph_title=graph,
             marker_designator=marker,
             perform_simulation=True,

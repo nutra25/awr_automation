@@ -1,8 +1,8 @@
-import pyawr.mwoffice as mwoffice
 from logger import LOGGER
 
 
 def configure_schematic_element(
+        app_instance,
         schematic_title: str,
         target_designator: str,
         parameter_map: dict[str, str],
@@ -33,7 +33,7 @@ def configure_schematic_element(
     LOGGER.info(f"Configuring Element: '{target_designator}' in '{schematic_title}'")
 
     try:
-        application_session = mwoffice.CMWOffice()
+        application_session = app_instance
     except Exception as connection_exception:
         LOGGER.critical(f"Failed to initialize AWR Microwave Office session: {connection_exception}")
         raise RuntimeError(f"Failed to initialize AWR Microwave Office session: {connection_exception}")

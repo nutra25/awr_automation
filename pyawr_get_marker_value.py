@@ -1,8 +1,8 @@
-import pyawr.mwoffice as mwoffice
 from logger import LOGGER
 
 
 def get_marker_value(
+        app_instance,
         graph_title: str,
         marker_designator: str,
         perform_simulation: bool = True,
@@ -31,7 +31,7 @@ def get_marker_value(
     LOGGER.info(f"Retrieving Marker Data: '{marker_designator}' from '{graph_title}'")
 
     try:
-        application_session = mwoffice.CMWOffice()
+        application_session = app_instance
     except Exception as connection_exception:
         LOGGER.critical(f"  └─ Failed to connect to AWR: {connection_exception}")
         raise RuntimeError(f"AWR Session Initialization Error: {connection_exception}")

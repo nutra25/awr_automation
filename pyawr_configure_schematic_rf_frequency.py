@@ -1,9 +1,8 @@
-import pyawr.mwoffice as mwoffice
 from typing import Union, List
 from logger import LOGGER
 
 
-def configure_schematic_rf_frequency(schematic_name: str, frequencies: Union[float, List[float]]):
+def configure_schematic_rf_frequency(app_instance, schematic_name: str, frequencies: Union[float, List[float]]):
     """
     Configures the RF simulation frequencies for a specific AWR schematic.
 
@@ -23,8 +22,7 @@ def configure_schematic_rf_frequency(schematic_name: str, frequencies: Union[flo
     LOGGER.info(f"Configuring RF Frequencies: '{schematic_name}'")
 
     try:
-        app = mwoffice.CMWOffice()
-        project = app.Project
+        project = app_instance.Project
 
         if project.Schematics.Exists(schematic_name):
             schematic = project.Schematics(schematic_name)
