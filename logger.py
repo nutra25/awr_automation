@@ -20,6 +20,7 @@ class LogColors:
     B_PURPLE  = "\033[0;95m"
     B_CYAN    = "\033[0;96m"
     B_WHITE   = "\033[0;97m"
+    KHAKI_MILITARY = "\033[38;2;75;83;32m"  # Deep Olive / Military Khaki
 
     # Mapping of filenames to specific colors for quick visual identification
     FILE_COLORS = {
@@ -29,6 +30,7 @@ class LogColors:
         "pyawr_configure_schematic_element.py": B_BLUE,
         "pyawr_configure_schematic_rf_frequency.py": B_YELLOW,
         "pyawr_get_marker_value.py": B_CYAN,
+        "pyawr_get_broadband_contours.py": KHAKI_MILITARY,
     }
     DEFAULT_FILE_COLOR = B_WHITE
 # #################################################
@@ -56,8 +58,8 @@ class ProfessionalFormatter(logging.Formatter):
         self.use_colors = use_colors
 
     def format(self, record):
-        # Retrieve the original log message
-        msg = record.getMessage()
+        # Retrieve the original log message and strip trailing hidden characters/newlines
+        msg = record.getMessage().rstrip()
 
         # Handle multi-line messages (e.g., from exceptions or complex data)
         # The goal is to collapse them into a single line while preserving the
@@ -112,38 +114,41 @@ class ProfessionalFormatter(logging.Formatter):
 LOGGER = logging.getLogger("awr_automation")
 LOGGER.setLevel(logging.DEBUG)
 
-if LOGGER.hasHandlers():
-    LOGGER.handlers.clear()
+# Prevent logs from propagating to the root logger and duplicating
+LOGGER.propagate = False
 
-# -----------------------------------------------------------------------------
-# 1. SETUP LOG FILENAME WITH TIMESTAMP
-# -----------------------------------------------------------------------------
-now = datetime.now()
-# Format: simulation_YYYY-MM-DD_HH-MM-SS.log
-log_filename = f"simulation_{now.strftime('%Y-%m-%d_%H-%M-%S')}.log"
+# Prevent adding handlers multiple times upon re-import
+if not LOGGER.hasHandlers():
+    
+    # -----------------------------------------------------------------------------
+    # 1. SETUP LOG FILENAME WITH TIMESTAMP
+    # -----------------------------------------------------------------------------
+    now = datetime.now()
+    # Format: simulation_YYYY-MM-DD_HH-MM-SS.log
+    log_filename = f"simulation_{now.strftime('%Y-%m-%d_%H-%M-%S')}.log"
 
-# Write a clean header to the new file before attaching the logger
-with open(log_filename, "w", encoding="utf-8") as f:
-    header_date = now.strftime("%d.%m.%Y %H:%M")
-    f.write(f"LOG SESSION DATE: {header_date}\n")
-    f.write("-" * 50 + "\n")
+    # Write a clean header to the new file before attaching the logger
+    with open(log_filename, "w", encoding="utf-8") as f:
+        header_date = now.strftime("%d.%m.%Y %H:%M")
+        f.write(f"LOG SESSION DATE: {header_date}\n")
+        f.write("-" * 50 + "\n")
 
-# -----------------------------------------------------------------------------
-# 2. CONSOLE HANDLER (Live Monitoring)
-# -----------------------------------------------------------------------------
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.DEBUG)
-console_handler.setFormatter(ProfessionalFormatter(use_colors=True))
+    # -----------------------------------------------------------------------------
+    # 2. CONSOLE HANDLER (Live Monitoring)
+    # -----------------------------------------------------------------------------
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.DEBUG)
+    console_handler.setFormatter(ProfessionalFormatter(use_colors=True))
 
-# -----------------------------------------------------------------------------
-# 3. FILE HANDLER (Persistent Storage)
-# -----------------------------------------------------------------------------
-# Use mode='a' (append) to preserve the header we just wrote
-file_handler = logging.FileHandler(log_filename, mode='a', encoding='utf-8')
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(ProfessionalFormatter(use_colors=False))
+    # -----------------------------------------------------------------------------
+    # 3. FILE HANDLER (Persistent Storage)
+    # -----------------------------------------------------------------------------
+    # Use mode='a' (append) to preserve the header we just wrote
+    file_handler = logging.FileHandler(log_filename, mode='a', encoding='utf-8')
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(ProfessionalFormatter(use_colors=False))
 
-LOGGER.addHandler(console_handler)
-LOGGER.addHandler(file_handler)
+    LOGGER.addHandler(console_handler)
+    LOGGER.addHandler(file_handler)
 
 __all__ = ['LOGGER', 'LogColors']

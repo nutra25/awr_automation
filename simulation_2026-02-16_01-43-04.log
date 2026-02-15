@@ -1,0 +1,135 @@
+LOG SESSION DATE: 16.02.2026 01:43
+--------------------------------------------------
+01:43:04 | main.py                                    | INFO     | Storage Initialized: 'simulation_results.csv'
+01:43:04 | main.py                                    | INFO     | Starting Simulation Sequence
+01:43:04 | pyawr_configure_schematic_rf_frequency.py  | INFO     | Configuring RF Frequencies: 'VDS40_Load_Pull'
+01:43:04 | pyawr_configure_schematic_rf_frequency.py  | INFO     |   ├── Added Frequency: 9.7 GHz
+01:43:04 | pyawr_configure_schematic_rf_frequency.py  | INFO     |   ├── Added Frequency: 9.75 GHz
+01:43:04 | pyawr_configure_schematic_rf_frequency.py  | INFO     |   ├── Added Frequency: 9.8 GHz
+01:43:04 | pyawr_configure_schematic_rf_frequency.py  | INFO     |   ├── Added Frequency: 9.85 GHz
+01:43:04 | pyawr_configure_schematic_rf_frequency.py  | INFO     |   ├── Added Frequency: 9.9 GHz
+01:43:04 | pyawr_configure_schematic_rf_frequency.py  | INFO     |   ├── Added Frequency: 9.95 GHz
+01:43:04 | pyawr_configure_schematic_rf_frequency.py  | INFO     |   ├── Added Frequency: 10.0 GHz
+01:43:04 | pyawr_configure_schematic_rf_frequency.py  | INFO     |   ├── Added Frequency: 10.05 GHz
+01:43:04 | pyawr_configure_schematic_rf_frequency.py  | INFO     |   ├── Added Frequency: 10.1 GHz
+01:43:04 | pyawr_configure_schematic_rf_frequency.py  | INFO     |   ├── Added Frequency: 10.15 GHz
+01:43:04 | pyawr_configure_schematic_rf_frequency.py  | INFO     |   ├── Added Frequency: 10.2 GHz
+01:43:04 | pyawr_configure_schematic_rf_frequency.py  | INFO     |   └── Added Frequency: 10.25 GHz
+01:43:04 | pyawr_configure_schematic_element.py       | INFO     | Configuring Element: 'DCVS.VDS' in 'VDS40_Load_Pull'
+01:43:04 | pyawr_configure_schematic_element.py       | INFO     |   └── V: [40] -> [40]
+01:43:04 | main.py                                    | INFO     | State Matrix Generated: 1 unique combinations.
+01:43:04 | main.py                                    | INFO     | >>> PROCESSING STATE 1/1: ('30', '-2.9')
+01:43:04 | pyawr_configure_schematic_element.py       | INFO     | Configuring Element: 'PORT1.P1' in 'VDS40_Load_Pull'
+01:43:04 | pyawr_configure_schematic_element.py       | INFO     |   └── Pwr: [30] -> [30]
+01:43:04 | pyawr_configure_schematic_element.py       | INFO     | Configuring Element: 'DCVS.VGS' in 'VDS40_Load_Pull'
+01:43:04 | pyawr_configure_schematic_element.py       | INFO     |   └── V: [-2.9] -> [-2.9]
+01:43:04 | main.py                                    | INFO     |    > Iteration 1/2 (Radius: 0.99)
+01:43:04 | pyawr_configure_schematic_element.py       | INFO     | Configuring Element: 'HBTUNER3.SourceTuner' in 'VDS40_Load_Pull'
+01:43:05 | pyawr_configure_schematic_element.py       | INFO     |   ├── Mag1: [0.9237256918919473] -> [calcMag(50,0,z0)]
+01:43:05 | pyawr_configure_schematic_element.py       | INFO     |   └── Ang1: [-63.96805804216546] -> [calcAng(50,0,z0)]
+01:43:05 | pyawr_configure_schematic_element.py       | INFO     | Configuring Element: 'HBTUNER3.LoadTuner' in 'VDS40_Load_Pull'
+01:43:05 | pyawr_configure_schematic_element.py       | INFO     |   ├── Mag1: [0.6960245610526933] -> [0.0]
+01:43:05 | pyawr_configure_schematic_element.py       | INFO     |   └── Ang1: [-120.60632388523696] -> [0.0]
+01:43:05 | pyawr_loadpull_wizard.py                   | INFO     | Starting Load Pull Wizard Automation Sequence
+01:43:05 | pyawr_loadpull_wizard.py                   | INFO     |   ├── Configuring Wizard Parameters:
+01:43:05 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_MaxHarmonic: [3] -> [1]
+01:43:05 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_DataFileName: [LP_Data] -> [source_data_1]
+01:43:05 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_OverwriteDataFile: [0] -> [True]
+01:43:05 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_Sweep_Source1: [0] -> [True]
+01:43:05 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_Sweep_Load1: [1] -> [False]
+01:43:05 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_Source1_Density: [Medium] -> [Extra fine]
+01:43:05 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_Source1_Radius: [0.6] -> [0.99]
+01:43:05 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_Source1_CenterMagnitude: [0.8] -> [0.0]
+01:43:05 | pyawr_loadpull_wizard.py                   | INFO     |     └── LP_Source1_CenterAngle: [180.0] -> [0.0]
+01:43:05 | pyawr_loadpull_wizard.py                   | INFO     |   ├── Configuration Summary: 9 Success, 0 Failed.
+01:43:05 | pyawr_loadpull_wizard.py                   | INFO     |   ├── Triggering Load Pull Execution (Exec)...
+01:43:13 | pyawr_loadpull_wizard.py                   | INFO     |   └── Load Pull Process Completed Successfully.
+01:43:13 | pyawr_get_broadband_contours.py            | INFO     | Starting Data Extraction Sequence for Graph: it1_source_pull
+01:43:13 | pyawr_get_broadband_contours.py            | INFO     |   ├── Extracting Measurement Traces:
+01:43:14 | pyawr_get_broadband_contours.py            | INFO     |   └── Data Extraction Process Completed Successfully
+01:43:15 | main.py                                    | INFO     |      * SP Result: Mag [0.853], Ang [-92.9]
+01:43:15 | pyawr_configure_schematic_element.py       | INFO     | Configuring Element: 'HBTUNER3.SourceTuner' in 'VDS40_Load_Pull'
+01:43:15 | pyawr_configure_schematic_element.py       | INFO     |   ├── Mag1: [calcMag(50,0,z0)] -> [0.8533843123568728]
+01:43:15 | pyawr_configure_schematic_element.py       | INFO     |   └── Ang1: [calcAng(50,0,z0)] -> [-92.87530605254331]
+01:43:15 | pyawr_configure_schematic_element.py       | INFO     | Configuring Element: 'HBTUNER3.LoadTuner' in 'VDS40_Load_Pull'
+01:43:15 | pyawr_configure_schematic_element.py       | INFO     |   ├── Mag1: [0.0] -> [calcMag(50,0,z0)]
+01:43:15 | pyawr_configure_schematic_element.py       | INFO     |   └── Ang1: [0.0] -> [calcAng(50,0,z0)]
+01:43:15 | pyawr_loadpull_wizard.py                   | INFO     | Starting Load Pull Wizard Automation Sequence
+01:43:15 | pyawr_loadpull_wizard.py                   | INFO     |   ├── Configuring Wizard Parameters:
+01:43:15 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_MaxHarmonic: [3] -> [1]
+01:43:15 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_DataFileName: [LP_Data] -> [load_data_1]
+01:43:15 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_OverwriteDataFile: [0] -> [True]
+01:43:15 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_Sweep_Load1: [1] -> [True]
+01:43:15 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_Sweep_Source1: [0] -> [False]
+01:43:15 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_Load1_Density: [Medium] -> [Extra fine]
+01:43:15 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_Load1_Radius: [0.6] -> [0.99]
+01:43:15 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_Load1_CenterMagnitude: [0.8] -> [0.0]
+01:43:15 | pyawr_loadpull_wizard.py                   | INFO     |     └── LP_Load1_CenterAngle: [180.0] -> [0.0]
+01:43:15 | pyawr_loadpull_wizard.py                   | INFO     |   ├── Configuration Summary: 9 Success, 0 Failed.
+01:43:15 | pyawr_loadpull_wizard.py                   | INFO     |   ├── Triggering Load Pull Execution (Exec)...
+01:43:23 | pyawr_loadpull_wizard.py                   | INFO     |   └── Load Pull Process Completed Successfully.
+01:43:23 | pyawr_get_broadband_contours.py            | INFO     | Starting Data Extraction Sequence for Graph: it1_load_pull
+01:43:24 | pyawr_get_broadband_contours.py            | INFO     |   ├── Extracting Measurement Traces:
+01:43:25 | pyawr_get_broadband_contours.py            | INFO     |   └── Data Extraction Process Completed Successfully
+01:43:25 | main.py                                    | INFO     |      * LP Result: Mag [0.667], Ang [-165.1]
+01:43:25 | main.py                                    | INFO     |    > Iteration 2/2 (Radius: 0.6)
+01:43:25 | pyawr_configure_schematic_element.py       | INFO     | Configuring Element: 'HBTUNER3.SourceTuner' in 'VDS40_Load_Pull'
+01:43:25 | pyawr_configure_schematic_element.py       | INFO     |   ├── Mag1: [0.8533843123568728] -> [calcMag(50,0,z0)]
+01:43:25 | pyawr_configure_schematic_element.py       | INFO     |   └── Ang1: [-92.87530605254331] -> [calcAng(50,0,z0)]
+01:43:25 | pyawr_configure_schematic_element.py       | INFO     | Configuring Element: 'HBTUNER3.LoadTuner' in 'VDS40_Load_Pull'
+01:43:26 | pyawr_configure_schematic_element.py       | INFO     |   ├── Mag1: [calcMag(50,0,z0)] -> [0.6671835660634716]
+01:43:26 | pyawr_configure_schematic_element.py       | INFO     |   └── Ang1: [calcAng(50,0,z0)] -> [-165.0823083205005]
+01:43:26 | pyawr_loadpull_wizard.py                   | INFO     | Starting Load Pull Wizard Automation Sequence
+01:43:26 | pyawr_loadpull_wizard.py                   | INFO     |   ├── Configuring Wizard Parameters:
+01:43:26 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_MaxHarmonic: [3] -> [1]
+01:43:26 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_DataFileName: [LP_Data] -> [source_data_2]
+01:43:26 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_OverwriteDataFile: [0] -> [True]
+01:43:26 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_Sweep_Source1: [0] -> [True]
+01:43:26 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_Sweep_Load1: [1] -> [False]
+01:43:26 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_Source1_Density: [Medium] -> [Extra fine]
+01:43:26 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_Source1_Radius: [0.6] -> [0.6]
+01:43:26 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_Source1_CenterMagnitude: [0.8] -> [0.8533843123568728]
+01:43:26 | pyawr_loadpull_wizard.py                   | INFO     |     └── LP_Source1_CenterAngle: [180.0] -> [-92.87530605254331]
+01:43:26 | pyawr_loadpull_wizard.py                   | INFO     |   ├── Configuration Summary: 9 Success, 0 Failed.
+01:43:26 | pyawr_loadpull_wizard.py                   | INFO     |   ├── Triggering Load Pull Execution (Exec)...
+01:43:31 | pyawr_loadpull_wizard.py                   | INFO     |   └── Load Pull Process Completed Successfully.
+01:43:31 | pyawr_get_broadband_contours.py            | INFO     | Starting Data Extraction Sequence for Graph: it2_source_pull
+01:43:32 | pyawr_get_broadband_contours.py            | INFO     |   ├── Extracting Measurement Traces:
+01:43:33 | pyawr_get_broadband_contours.py            | INFO     |   └── Data Extraction Process Completed Successfully
+01:43:33 | main.py                                    | INFO     |      * SP Result: Mag [0.657], Ang [-101.2]
+01:43:33 | pyawr_configure_schematic_element.py       | INFO     | Configuring Element: 'HBTUNER3.SourceTuner' in 'VDS40_Load_Pull'
+01:43:33 | pyawr_configure_schematic_element.py       | INFO     |   ├── Mag1: [calcMag(50,0,z0)] -> [0.6571306857440984]
+01:43:33 | pyawr_configure_schematic_element.py       | INFO     |   └── Ang1: [calcAng(50,0,z0)] -> [-101.17071514703056]
+01:43:33 | pyawr_configure_schematic_element.py       | INFO     | Configuring Element: 'HBTUNER3.LoadTuner' in 'VDS40_Load_Pull'
+01:43:33 | pyawr_configure_schematic_element.py       | INFO     |   ├── Mag1: [0.6671835660634716] -> [calcMag(50,0,z0)]
+01:43:34 | pyawr_configure_schematic_element.py       | INFO     |   └── Ang1: [-165.0823083205005] -> [calcAng(50,0,z0)]
+01:43:34 | pyawr_loadpull_wizard.py                   | INFO     | Starting Load Pull Wizard Automation Sequence
+01:43:34 | pyawr_loadpull_wizard.py                   | INFO     |   ├── Configuring Wizard Parameters:
+01:43:34 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_MaxHarmonic: [3] -> [1]
+01:43:34 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_DataFileName: [LP_Data] -> [load_data_2]
+01:43:34 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_OverwriteDataFile: [0] -> [True]
+01:43:34 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_Sweep_Load1: [1] -> [True]
+01:43:34 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_Sweep_Source1: [0] -> [False]
+01:43:34 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_Load1_Density: [Medium] -> [Extra fine]
+01:43:34 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_Load1_Radius: [0.6] -> [0.6]
+01:43:34 | pyawr_loadpull_wizard.py                   | INFO     |     ├── LP_Load1_CenterMagnitude: [0.8] -> [0.6671835660634716]
+01:43:34 | pyawr_loadpull_wizard.py                   | INFO     |     └── LP_Load1_CenterAngle: [180.0] -> [-165.0823083205005]
+01:43:34 | pyawr_loadpull_wizard.py                   | INFO     |   ├── Configuration Summary: 9 Success, 0 Failed.
+01:43:34 | pyawr_loadpull_wizard.py                   | INFO     |   ├── Triggering Load Pull Execution (Exec)...
+01:43:40 | pyawr_loadpull_wizard.py                   | INFO     |   └── Load Pull Process Completed Successfully.
+01:43:40 | pyawr_get_broadband_contours.py            | INFO     | Starting Data Extraction Sequence for Graph: it2_load_pull
+01:43:40 | pyawr_get_broadband_contours.py            | INFO     |   ├── Extracting Measurement Traces:
+01:43:41 | pyawr_get_broadband_contours.py            | INFO     |   └── Data Extraction Process Completed Successfully
+01:43:42 | main.py                                    | INFO     |      * LP Result: Mag [0.661], Ang [-164.6]
+01:43:42 | pyawr_configure_schematic_element.py       | INFO     | Configuring Element: 'HBTUNER3.SourceTuner' in 'VDS40_Load_Pull'
+01:43:42 | pyawr_configure_schematic_element.py       | INFO     |   ├── Mag1: [0.6571306857440984] -> [0.6571306857440984]
+01:43:42 | pyawr_configure_schematic_element.py       | INFO     |   └── Ang1: [-101.17071514703056] -> [-101.17071514703056]
+01:43:42 | pyawr_configure_schematic_element.py       | INFO     | Configuring Element: 'HBTUNER3.LoadTuner' in 'VDS40_Load_Pull'
+01:43:42 | pyawr_configure_schematic_element.py       | INFO     |   ├── Mag1: [calcMag(50,0,z0)] -> [0.6605098621019683]
+01:43:42 | pyawr_configure_schematic_element.py       | INFO     |   └── Ang1: [calcAng(50,0,z0)] -> [-164.60515589143927]
+01:43:42 | pyawr_get_marker_value.py                  | INFO     | Retrieving Marker Data: 'm1' from 'Results'
+01:43:42 | pyawr_get_marker_value.py                  | INFO     |   └── Value: 10.25 GHz (38.65 dBm)
+01:43:42 | pyawr_get_marker_value.py                  | INFO     | Retrieving Marker Data: 'm2' from 'Results'
+01:43:42 | pyawr_get_marker_value.py                  | INFO     |   └── Value: 10.25 GHz (51.21)
+01:43:42 | main.py                                    | INFO     | <<< STATE 1 COMPLETE
+01:43:42 | main.py                                    | INFO     | Simulation Sequence Completed in 38.16 seconds.

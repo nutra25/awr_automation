@@ -144,64 +144,100 @@ class BroadbandOptimumSelector(BasePointSelector):
         if num_freqs == 0:
             return "0", "0", "0"
 
-        # 3. KOTASIZ VE KESİN (EXACT) A* ARAMA ALGORİTMASI
-        def get_metrics(state):
-            current_paes = [freq_geoms[freqs[i]][state[i]]['pae'] for i in range(num_freqs)]
-            min_pae = min(current_paes)
-            drops = [freq_geoms[freqs[i]][0]['pae'] - current_paes[i] for i in range(num_freqs)]
-            max_drop = round(max(drops), 4)
-            sum_drop = round(sum(drops), 4)
-            
-            # Priority Queue en küçük değeri ilk çekeceği için, min_pae'yi eksi yapıyoruz.
-            return -min_pae, max_drop, sum_drop
-
-        initial_state = tuple([0] * num_freqs)
-        queue = []
-        heapq.heappush(queue, (*get_metrics(initial_state), initial_state))
-        visited = set([initial_state])
+        # =========================================================================
+        # 3. TABAN MASKESİ VE İÇERİ DARALTMA (BASE-BOUND & SHRINK) ALGORİTMASI
+        # =========================================================================
         
-        best_state = None
+        # --- AŞAMA 1: EŞİT KADEME DÜŞÜREREK ORTAK TABAN (BASE AREA) BULMA ---
+        state = [0] * num_freqs
+        best_state = None          # DÜZELTME: Başlangıçta boş tanımlandı
         best_intersection = None
-
-        while queue:
-            # DİKKAT: Artık len(queue) > 500 gibi bir kota yok!
-            item = heapq.heappop(queue)
-            state = item[-1]
-            
+        
+        step = 0
+        while True:
             current_geom = freq_geoms[freqs[0]][state[0]]['geom']
-            failed_index = -1 # Kesişimin koptuğu noktayı bulmak için ajan
+            valid = True
             
-            # Geometrileri sırayla kesiştir
             for i in range(1, num_freqs):
-                current_geom = current_geom.intersection(freq_geoms[freqs[i]][state[i]]['geom'])
-                if current_geom.is_empty:
-                    failed_index = i # Çatışmayı çıkaran frekansı yakaladık!
-                    break 
+                next_geom = freq_geoms[freqs[i]][state[i]]['geom']
+                
+                # Hızlı Sınır Kutusu Kontrolü
+                cb = current_geom.bounds
+                nb = next_geom.bounds
+                if cb[0] > nb[2] or cb[2] < nb[0] or cb[1] > nb[3] or cb[3] < nb[1]:
+                    valid = False
+                    break
                     
-            if failed_index == -1 and current_geom.area > 1e-6:
-                # Kesişim başarılı! 
-                # Priority Queue (Öncelik Kuyruğu) kullandığımız için bulduğumuz bu İLK sonuç 
-                # MATEMATİKSEL OLARAK KESİN EN İYİ SONUÇTUR. Aramayı güvenle bitirebiliriz.
-                best_state = state
+                current_geom = current_geom.intersection(next_geom)
+                if current_geom.is_empty:
+                    valid = False
+                    break
+                    
+            if valid and current_geom.area > 1e-6:
                 best_intersection = current_geom
+                best_state = list(state) # DÜZELTME: Taban alanı da geçerli bir hedeftir!
+                print(f"\n -> [Adım {step}] Taban Maskesi (Ortak Kesişim Alanı) Bulundu!")
                 break
                 
-            # --- AKILLI BUDAMA (PRUNING) - DARBOĞAZI ÖNLEYEN MATEMATİK ---
-            # Eğer kesişim 'failed_index' adımında koptuysa, ondan sonraki frekansları 
-            # değiştirmek sonucu asla düzeltmez. Trilyonlarca ihtimali çöpe atıyoruz.
-            # Sadece sorunu çıkaran 0 ile failed_index arasındaki frekansları feda etmeyi dene!
-            branch_limit = failed_index + 1 if failed_index != -1 else num_freqs
-            
-            for i in range(branch_limit):
+            # Kesişim yoksa, istisnasız HEPSİNİ 1 kademe düşür (Eğer inebilecek yeri varsa)
+            can_drop = False
+            for i in range(num_freqs):
                 if state[i] + 1 < len(freq_geoms[freqs[i]]):
-                    next_state = list(state)
-                    next_state[i] += 1
-                    next_state = tuple(next_state)
+                    state[i] += 1
+                    can_drop = True
                     
-                    if next_state not in visited:
-                        visited.add(next_state)
-                        heapq.heappush(queue, (*get_metrics(next_state), next_state))
+            if not can_drop:
+                print(" -> [HATA] Tüm frekanslar en alt kademeye indi ama hiçbir ortak kesişim yok!")
+                break
+                
+            step += 1
 
+        # --- AŞAMA 2: SINIRLANAN ALAN İÇİNDE ÜST KATMANLARA ÇIKMA ---
+        if best_intersection is not None:
+            pass_num = 1
+            
+            while True:
+                improvement_in_this_pass = False
+                
+                # Bir üst katmana çıkabilecek frekansları belirle
+                candidates = []
+                for i in range(num_freqs):
+                    if state[i] > 0: # 0 zirvedir, daha yukarı çıkamaz
+                        pae_val = freq_geoms[freqs[i]][state[i]]['pae']
+                        candidates.append((pae_val, i))
+                        
+                # Adil daralma için önce en alt katmanda kalan frekansları yukarı çekmeyi deniyoruz
+                candidates.sort(key=lambda x: x[0])
+                
+                for _, i in candidates:
+                    test_state_idx = state[i] - 1 # 1 üst katmanın indeksi
+                    next_geom = freq_geoms[freqs[i]][test_state_idx]['geom']
+                    
+                    cb = best_intersection.bounds
+                    nb = next_geom.bounds
+                    
+                    if cb[0] > nb[2] or cb[2] < nb[0] or cb[1] > nb[3] or cb[3] < nb[1]:
+                        continue # Geometriler uzak, üst katman maskenin dışında kalıyor
+                        
+                    test_intersection = best_intersection.intersection(next_geom)
+                    
+                    if not test_intersection.is_empty and test_intersection.area > 1e-6:
+                        # HARİKA! Bu frekans üst katmana çıkabildi ve ortak alanı bozmadı.
+                        best_intersection = test_intersection
+                        state[i] = test_state_idx
+                        best_state = list(state) # DÜZELTME: Gelişen durumu best_state'e kaydet
+                        improvement_in_this_pass = True
+                        
+                        freq_ghz = freqs[i] / 1e9
+                        new_pae = freq_geoms[freqs[i]][state[i]]['pae']
+                        print(f"    + [Tur {pass_num}] {freq_ghz:.2f} GHz üst katmana tutundu -> Yeni PAE: {new_pae}")
+                
+                if not improvement_in_this_pass:
+                    # Gidebileceğimiz son noktaya (Sweet Spot'a) geldik!
+                    break
+                    
+                pass_num += 1
+        # =========================================================================
         # 4. Sonuçları Hesapla ve Döndür
         if best_state is None or best_intersection is None:
             print("[BAŞARISIZ] Geniş bant için ortak kesişim bulunamadı.")

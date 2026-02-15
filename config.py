@@ -17,7 +17,7 @@ SCHEMATIC_NAME: str = "VDS40_Load_Pull"
 STATE_CONS = [
     objects.State(
         name="Frekans (GHz)",
-        value=generate_sweep_values(12.7,13.25,0.05),
+        value=generate_sweep_values(9.7,10.25,0.05),
         type=objects.StateType.RF_FREQUENCY,
     ),
     objects.State(
