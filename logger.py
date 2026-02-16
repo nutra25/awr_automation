@@ -24,13 +24,12 @@ class LogColors:
 
     # Mapping of filenames to specific colors for quick visual identification
     FILE_COLORS = {
-        "gemini.py": B_GREEN,
         "main.py": B_GREEN,
-        "pyawr_loadpull_wizard.py": B_PURPLE,
-        "pyawr_configure_schematic_element.py": B_BLUE,
-        "pyawr_configure_schematic_rf_frequency.py": B_YELLOW,
-        "pyawr_get_marker_value.py": B_CYAN,
-        "pyawr_get_broadband_contours.py": KHAKI_MILITARY,
+        "awr_loadpull_wizard.py": B_PURPLE,
+        "awr_configure_schematic_element.py": B_BLUE,
+        "awr_configure_schematic_rf_frequency.py": B_YELLOW,
+        "awr_get_marker_value.py": B_CYAN,
+        "awr_get_broadband_contours.py": KHAKI_MILITARY,
     }
     DEFAULT_FILE_COLOR = B_WHITE
 # #################################################
@@ -125,7 +124,7 @@ if not LOGGER.hasHandlers():
     # -----------------------------------------------------------------------------
     now = datetime.now()
     # Format: simulation_YYYY-MM-DD_HH-MM-SS.log
-    log_filename = f"simulation_{now.strftime('%Y-%m-%d_%H-%M-%S')}.log"
+    log_filename = f"outputs/logs/simulation_{now.strftime('%Y-%m-%d_%H-%M-%S')}.log"
 
     # Write a clean header to the new file before attaching the logger
     with open(log_filename, "w", encoding="utf-8") as f:

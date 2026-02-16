@@ -98,7 +98,7 @@ MEASUREMENT_CONFIG = [
 
 ##################################################
 # RESULT DATA SAVING SETTINGS
-FILENAME: str = "simulation_results.csv"
+FILENAME: str = "outputs//csv results//simulation_results.csv"
 ##################################################
 
 

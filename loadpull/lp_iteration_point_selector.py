@@ -340,7 +340,7 @@ class BroadbandOptimumSelector(BasePointSelector):
                 plt.tight_layout()
                 
                 # 3. VEKTÖREL KAYIT (SVG)
-                save_dir = "AWR_Plots"
+                save_dir = f"outputs/graphs/lp_broadband_optimum_plots"
                 if not os.path.exists(save_dir):
                     os.makedirs(save_dir)
                     
