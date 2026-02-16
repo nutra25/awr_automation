@@ -1,11 +1,25 @@
+import os
+from datetime import datetime
+
+
+##################################################
+# PATH MANAGEMENT INITIALIZATION
+timestamp = datetime.now().strftime("%y.%m.%d-%H.%M.%S")
+RUN_DIR = os.path.join("outputs", f"RUN {timestamp}")
+
+CSV_DIR = os.path.join(RUN_DIR, "csv results")
+LOGS_DIR = os.path.join(RUN_DIR, "logs")
+GRAPHS_DIR = os.path.join(RUN_DIR, "graphs")
+
+os.makedirs(CSV_DIR, exist_ok=True)
+os.makedirs(LOGS_DIR, exist_ok=True)
+os.makedirs(GRAPHS_DIR, exist_ok=True)
+##################################################
+
 import objects
 from objects import generate_sweep_values
 from loadpull.lp_iteration_point_selector import MaxMarkerSelector, BroadbandOptimumSelector
-from loadpull.lp_state_result_selector import MaxPointStrategy
-##################################################
-# SCRIPT SETTING !DONT_TOUCH!
-
-##################################################
+from loadpull.lp_state_result_selector import LastIterationStrategy
 
 ##################################################
 # PROJECT SETTINGS
@@ -53,21 +67,23 @@ STATE_VAR = [
 ##################################################
 # ITERATION SETTINGS
 POINT_SELECTOR = BroadbandOptimumSelector()
-FINAL_STRATEGY = MaxPointStrategy()
+FINAL_STRATEGY = LastIterationStrategy()
 ITERATION_COUNT: int = 2
 RADIUS_LIST: tuple = ("0.99", "0.60", "0.30")
-GRAPH_NAME_PATTERN = "it{iter}_{type}_pull" # {iter}: Iteration number (1, 2...) {type}: "source" or "load"
+GRAPH_NAME_PATTERN = "it{iter}_{type}_pull"
+
 WIZARD_DEFAULTS = {
     "LP_MaxHarmonic": 1,
     "LP_Density": "Extra fine",
     "LP_OverwriteDataFile": True,
 }
+
 TUNER_SETTINGS = {
     "SOURCE": {
         "name": "HBTUNER3.SourceTuner",
-        "prefix_mag": "Mag", # Mag1, Mag2... şeklinde artacak
+        "prefix_mag": "Mag",
         "prefix_ang": "Ang",
-        "harmonics_to_track": [1] # Şimdilik sadece ana frekans
+        "harmonics_to_track": [1]
     },
     "LOAD": {
         "name": "HBTUNER3.LoadTuner",
@@ -98,7 +114,5 @@ MEASUREMENT_CONFIG = [
 
 ##################################################
 # RESULT DATA SAVING SETTINGS
-FILENAME: str = "outputs//csv results//simulation_results.csv"
+FILENAME: str = os.path.join(CSV_DIR, "simulation_results.csv")
 ##################################################
-
-
