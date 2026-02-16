@@ -1,7 +1,7 @@
 import objects
 from objects import generate_sweep_values
-from lp_iteration_point_selector import MaxMarkerSelector, BroadbandOptimumSelector
-from lp_state_result_selector import MaxPointStrategy
+from loadpull.lp_iteration_point_selector import MaxMarkerSelector, BroadbandOptimumSelector
+from loadpull.lp_state_result_selector import MaxPointStrategy
 ##################################################
 # SCRIPT SETTING !DONT_TOUCH!
 

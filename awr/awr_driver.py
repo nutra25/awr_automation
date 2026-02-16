@@ -1,10 +1,10 @@
 # AWR Automation Modules
 import pyawr.mwoffice as mwoffice
-from pyawr_get_marker_value import get_marker_value
-from pyawr_configure_schematic_element import configure_schematic_element
-from pyawr_loadpull_wizard import run_loadpull_wizard
-from pyawr_configure_schematic_rf_frequency import configure_schematic_rf_frequency
-from pyawr_get_broadband_contours import extract_graph_data
+from awr.awr_get_marker_value import get_marker_value
+from awr.awr_configure_schematic_element import configure_schematic_element
+from awr.awr_loadpull_wizard import run_loadpull_wizard
+from awr.awr_configure_schematic_rf_frequency import configure_schematic_rf_frequency
+from awr.awr_get_broadband_contours import extract_graph_data
 
 from typing import List, Dict, Any, Union
 from config import SCHEMATIC_NAME

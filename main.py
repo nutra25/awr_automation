@@ -12,7 +12,7 @@ import objects
 from logger import LOGGER
 
 # Drivers
-from awr import AWRDriver
+from awr.awr_driver import AWRDriver
 #from test import TESTDriver
 
 
