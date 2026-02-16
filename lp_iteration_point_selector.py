@@ -145,16 +145,17 @@ class BroadbandOptimumSelector(BasePointSelector):
             return "0", "0", "0"
 
         # =========================================================================
-        # 3. TABAN MASKESİ VE İÇERİ DARALTMA (BASE-BOUND & SHRINK) ALGORİTMASI
+        # 3. SINIRLAYICI ODAKLI MASK & SHRINK (LIMITER-BIASED) ALGORİTMASI
         # =========================================================================
         
-        # --- AŞAMA 1: EŞİT KADEME DÜŞÜREREK ORTAK TABAN (BASE AREA) BULMA ---
+        # --- AŞAMA 1: EŞİT PAE SEVİYESİNDE ORTAK TABAN (BASE AREA) BULMA ---
         state = [0] * num_freqs
-        best_state = None          # DÜZELTME: Başlangıçta boş tanımlandı
+        best_state = None
         best_intersection = None
         
         step = 0
         while True:
+            # Mevcut durumu kesiştir
             current_geom = freq_geoms[freqs[0]][state[0]]['geom']
             valid = True
             
@@ -175,65 +176,77 @@ class BroadbandOptimumSelector(BasePointSelector):
                     
             if valid and current_geom.area > 1e-6:
                 best_intersection = current_geom
-                best_state = list(state) # DÜZELTME: Taban alanı da geçerli bir hedeftir!
-                print(f"\n -> [Adım {step}] Taban Maskesi (Ortak Kesişim Alanı) Bulundu!")
+                best_state = list(state)
+                min_base_pae = min([freq_geoms[freqs[i]][state[i]]['pae'] for i in range(num_freqs)])
+                print(f"\n -> [Adım {step}] Ortak Taban Maskesi Bulundu! (Minimum PAE: {min_base_pae})")
                 break
                 
-            # Kesişim yoksa, istisnasız HEPSİNİ 1 kademe düşür (Eğer inebilecek yeri varsa)
-            can_drop = False
+            # Kesişim yoksa, her frekansın PAE değerlerini eşitlemek için "Şu an PAE'si 
+            # EN YÜKSEK olan" frekans(lar)ı 1 kademe düşür. (Eşit hizada buluşturur)
+            current_paes = []
             for i in range(num_freqs):
                 if state[i] + 1 < len(freq_geoms[freqs[i]]):
-                    state[i] += 1
-                    can_drop = True
+                    current_paes.append((freq_geoms[freqs[i]][state[i]]['pae'], i))
                     
-            if not can_drop:
-                print(" -> [HATA] Tüm frekanslar en alt kademeye indi ama hiçbir ortak kesişim yok!")
+            if not current_paes:
+                print(" -> [HATA] Tüm frekanslar en alt kademeye indi ama kesişim yok!")
                 break
                 
+            max_pae_in_current_state = max(current_paes, key=lambda x: x[0])[0]
+            
+            for pae_val, i in current_paes:
+                if pae_val == max_pae_in_current_state:
+                    state[i] += 1
+                    
             step += 1
 
-        # --- AŞAMA 2: SINIRLANAN ALAN İÇİNDE ÜST KATMANLARA ÇIKMA ---
+        # --- AŞAMA 2: SINIRLAYICI FREKANSA YÖNELEREK (LIMITER-BIASED) DARALTMA ---
         if best_intersection is not None:
             pass_num = 1
+            
+            # *** SENİN MÜKEMMEL STRATEJİN BURADA DEVREYE GİRİYOR ***
+            # Frekansları "Zirve (Peak) PAE" kapasitelerine göre KÜÇÜKTEN BÜYÜĞE sıralıyoruz.
+            # Örneğin: 13 GHz (Peak: 47.5) LİSTEDE ÖNCE, 12 GHz (Peak: 48.5) SONRA gelecek.
+            limiting_order = []
+            for i in range(num_freqs):
+                peak_pae = freq_geoms[freqs[i]][0]['pae']
+                limiting_order.append((peak_pae, i))
+                
+            # En düşük potansiyele sahip (bizi en çok sınırlayan) frekansları en başa al
+            limiting_order.sort(key=lambda x: x[0])
             
             while True:
                 improvement_in_this_pass = False
                 
-                # Bir üst katmana çıkabilecek frekansları belirle
-                candidates = []
-                for i in range(num_freqs):
-                    if state[i] > 0: # 0 zirvedir, daha yukarı çıkamaz
-                        pae_val = freq_geoms[freqs[i]][state[i]]['pae']
-                        candidates.append((pae_val, i))
+                # Her turda her zaman önce "Sınırlayıcı (Weak)" frekanslara yukarı çıkma hakkı tanınır
+                for peak_pae, i in limiting_order:
+                    if state[i] > 0: # Eğer kendi zirvesinde değilse
+                        test_state_idx = state[i] - 1
+                        next_geom = freq_geoms[freqs[i]][test_state_idx]['geom']
                         
-                # Adil daralma için önce en alt katmanda kalan frekansları yukarı çekmeyi deniyoruz
-                candidates.sort(key=lambda x: x[0])
-                
-                for _, i in candidates:
-                    test_state_idx = state[i] - 1 # 1 üst katmanın indeksi
-                    next_geom = freq_geoms[freqs[i]][test_state_idx]['geom']
-                    
-                    cb = best_intersection.bounds
-                    nb = next_geom.bounds
-                    
-                    if cb[0] > nb[2] or cb[2] < nb[0] or cb[1] > nb[3] or cb[3] < nb[1]:
-                        continue # Geometriler uzak, üst katman maskenin dışında kalıyor
+                        cb = best_intersection.bounds
+                        nb = next_geom.bounds
                         
-                    test_intersection = best_intersection.intersection(next_geom)
-                    
-                    if not test_intersection.is_empty and test_intersection.area > 1e-6:
-                        # HARİKA! Bu frekans üst katmana çıkabildi ve ortak alanı bozmadı.
-                        best_intersection = test_intersection
-                        state[i] = test_state_idx
-                        best_state = list(state) # DÜZELTME: Gelişen durumu best_state'e kaydet
-                        improvement_in_this_pass = True
+                        if cb[0] > nb[2] or cb[2] < nb[0] or cb[1] > nb[3] or cb[3] < nb[1]:
+                            continue
+                            
+                        test_intersection = best_intersection.intersection(next_geom)
                         
-                        freq_ghz = freqs[i] / 1e9
-                        new_pae = freq_geoms[freqs[i]][state[i]]['pae']
-                        print(f"    + [Tur {pass_num}] {freq_ghz:.2f} GHz üst katmana tutundu -> Yeni PAE: {new_pae}")
+                        if not test_intersection.is_empty and test_intersection.area > 1e-6:
+                            # Kesişim başarılı! Alanı bizi SINIRLAYAN bu frekansa doğru daraltıyoruz.
+                            # Güçlü frekanslar (örn: 12GHz) sırası geldiğinde ancak bu dar alanı 
+                            # kesmiyorlarsa (yani zayıf frekansı ezmiyorlarsa) daralabilecekler.
+                            best_intersection = test_intersection
+                            state[i] = test_state_idx
+                            best_state = list(state)
+                            improvement_in_this_pass = True
+                            
+                            freq_ghz = freqs[i] / 1e9
+                            new_pae = freq_geoms[freqs[i]][state[i]]['pae']
+                            print(f"    + [Tur {pass_num}] {freq_ghz:.2f} GHz (Sınır Kapasite: {peak_pae}) merkeze çekildi -> Yeni PAE: {new_pae}")
                 
                 if not improvement_in_this_pass:
-                    # Gidebileceğimiz son noktaya (Sweet Spot'a) geldik!
+                    # Sınırlandıran frekansların etrafında örülmüş en optimum merkeze ulaştık!
                     break
                     
                 pass_num += 1
