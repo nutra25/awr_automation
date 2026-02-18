@@ -20,10 +20,15 @@ class BasePointSelector(ABC):
     """
 
     @abstractmethod
-    def select_point(self, driver: Any, graph_name: str) -> Tuple[str, str, str]:
+    def select_point(self, driver: Any, graph_name: str, save_dir: Optional[str] = None) -> Tuple[str, str, str]:
         """
         Executes the selection logic and returns the designated point parameters.
         Returns a tuple of strings formatted as (Value, Magnitude, Angle).
+
+        Args:
+            driver: The simulator driver instance.
+            graph_name: The name of the graph to analyze.
+            save_dir: Optional directory path to save generated plots.
         """
         pass
 
@@ -37,8 +42,9 @@ class MaxMarkerSelector(BasePointSelector):
     def __init__(self, marker_name: str = "m1"):
         self.marker_name = marker_name
 
-    def select_point(self, driver: Any, graph_name: str) -> Tuple[str, str, str]:
+    def select_point(self, driver: Any, graph_name: str, save_dir: Optional[str] = None) -> Tuple[str, str, str]:
         LOGGER.info(f"Initiating MaxMarkerSelector for graph: {graph_name}")
+
         data = driver.get_marker_data(graph_name, self.marker_name)
 
         if not data:
@@ -46,7 +52,7 @@ class MaxMarkerSelector(BasePointSelector):
             return "0", "0", "0"
 
         LOGGER.info(f"└── Successfully acquired marker coordinates: Magnitude={data[1]}, Angle={data[2]}")
-        return str(data[0]), str(data[1]), str(data[2])
+        return str(data), str(data[1]), str(data[2])
 
 
 class TradeOffSelector(BasePointSelector):
@@ -60,7 +66,7 @@ class TradeOffSelector(BasePointSelector):
         self.m2 = marker2
         self.weight = weight
 
-    def select_point(self, driver: Any, graph_name: str) -> Tuple[str, str, str]:
+    def select_point(self, driver: Any, graph_name: str, save_dir: Optional[str] = None) -> Tuple[str, str, str]:
         LOGGER.info(f"Initiating TradeOffSelector between markers '{self.m1}' and '{self.m2}'")
 
         d1 = driver.get_marker_data(graph_name, self.m1)
@@ -75,7 +81,7 @@ class TradeOffSelector(BasePointSelector):
 
         avg_mag = (d1[1] * w1) + (d2[1] * w2)
         avg_ang = (d1[2] * w1) + (d2[2] * w2)
-        avg_val = (d1[0] * w1) + (d2[0] * w2)
+        avg_val = (d1 * w1) + (d2 * w2)
 
         LOGGER.info(f"└── Calculated weighted trade-off point: Magnitude={avg_mag:.4f}, Angle={avg_ang:.2f}")
         return str(avg_val), str(avg_mag), str(avg_ang)
@@ -90,10 +96,11 @@ class BroadbandOptimumSelector(BasePointSelector):
     def __init__(self, show_plot: bool = True):
         self.show_plot = show_plot
 
-    def select_point(self, driver: Any, graph_name: str) -> Tuple[str, str, str]:
+    def select_point(self, driver: Any, graph_name: str, save_dir: Optional[str] = None) -> Tuple[str, str, str]:
         LOGGER.info(f"Initiating BroadbandOptimumSelector for graph: {graph_name}")
 
         freq_geoms, freqs, num_freqs = self._fetch_and_process_contours(driver, graph_name)
+
         if num_freqs == 0:
             return "0", "0", "0"
 
@@ -124,12 +131,10 @@ class BroadbandOptimumSelector(BasePointSelector):
             LOGGER.info(f"├── Target centroid calculated at Magnitude={mag:.4f}, Angle={ang:.2f}°")
 
             if self.show_plot:
-                # 1. 2D Matplotlib rendering
-                self._generate_plot(graph_name, freqs, num_freqs, freq_geoms, best_state, geoms_to_plot, cx, cy)
-
-                # 2. 3D Plotly rendering
+                self._generate_plot(graph_name, freqs, num_freqs, freq_geoms, best_state, geoms_to_plot, cx, cy,
+                                    save_dir)
                 self._generate_plot_3d_plotly(graph_name, freqs, num_freqs, freq_geoms, best_state, geoms_to_plot, cx,
-                                              cy)
+                                              cy, save_dir)
             else:
                 LOGGER.info("└── Visualization is disabled; skipping plot generation.")
 
@@ -150,8 +155,8 @@ class BroadbandOptimumSelector(BasePointSelector):
         freqs = sorted(list(data_by_freq.keys()))
 
         LOGGER.info("├── Converting contour datasets into geometric polygon structures")
-        num_processed = len(freqs)
 
+        num_processed = len(freqs)
         for idx, freq in enumerate(freqs):
             sorted_contours = sorted(data_by_freq[freq], key=lambda x: x['pae'], reverse=True)
             geoms_list = []
@@ -199,7 +204,6 @@ class BroadbandOptimumSelector(BasePointSelector):
                 next_geom = freq_geoms[freqs[i]][state[i]]['geom']
                 cb = current_geom.bounds
                 nb = next_geom.bounds
-
                 if cb[0] > nb[2] or cb[2] < nb[0] or cb[1] > nb[3] or cb[3] < nb[1]:
                     valid = False
                     break
@@ -235,7 +239,6 @@ class BroadbandOptimumSelector(BasePointSelector):
         if best_intersection is not None:
             LOGGER.debug("├── Phase 2: Applying limiter-biased optimization logic")
             pass_num = 1
-
             limiting_order = []
             for i in range(num_freqs):
                 peak_pae = freq_geoms[freqs[i]][0]['pae']
@@ -261,7 +264,6 @@ class BroadbandOptimumSelector(BasePointSelector):
                             state[i] = test_state_idx
                             best_state = list(state)
                             improvement_in_this_pass = True
-
                             freq_ghz = freqs[i] / 1e9
                             new_pae = freq_geoms[freqs[i]][state[i]]['pae']
                             LOGGER.debug(
@@ -277,7 +279,9 @@ class BroadbandOptimumSelector(BasePointSelector):
         return best_intersection, best_state, worst_case_pae
 
     def _generate_plot(self, graph_name: str, freqs: List[float], num_freqs: int, freq_geoms: Dict,
-                       best_state: List[int], geoms_to_plot: List[Any], cx: float, cy: float):
+                       best_state: List[int], geoms_to_plot: List[Any], cx: float, cy: float,
+                       save_dir: Optional[str] = None):
+
         LOGGER.info("├── Generating 2D vector graphic rendering of the intersection dataset")
 
         plt.figure(figsize=(14, 12), dpi=120)
@@ -318,17 +322,20 @@ class BroadbandOptimumSelector(BasePointSelector):
         plt.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), fontsize=10)
         plt.tight_layout()
 
-        filename = os.path.join(config.GRAPHS_DIR, f"{graph_name}_2D.svg")
+        target_dir = save_dir if save_dir else config.GRAPHS_DIR
+        filename = os.path.join(target_dir, f"{graph_name}_2D.svg")
+
         try:
             plt.savefig(filename, bbox_inches='tight', format='svg')
-            LOGGER.info(f"└── Successfully exported 2D graphic render to: {filename}")
+            LOGGER.info(f"├── Successfully exported 2D graphic render to: {filename}")
         except Exception as e:
-            LOGGER.error(f"└── Encountered an error during 2D graphic generation: {e}")
+            LOGGER.error(f"├── Encountered an error during 2D graphic generation: {e}")
         finally:
             plt.close()
 
     def _generate_plot_3d_plotly(self, graph_name: str, freqs: List[float], num_freqs: int, freq_geoms: Dict,
-                                 best_state: List[int], geoms_to_plot: List[Any], cx: float, cy: float):
+                                 best_state: List[int], geoms_to_plot: List[Any], cx: float, cy: float,
+                                 save_dir: Optional[str] = None):
         """
         Generates an interactive 3D HTML plot using Plotly.
         Features: Z=PAE topographical mapping, Dynamic Line Width,
@@ -338,14 +345,12 @@ class BroadbandOptimumSelector(BasePointSelector):
         LOGGER.info("├── Generating Advanced Interactive 3D Plotly rendering (Z-Axis = PAE)")
 
         fig = go.Figure()
-
         trace_metadata = []
 
         def push_trace(trace_obj, trace_type, f=None, p=None):
             fig.add_trace(trace_obj)
             trace_metadata.append({'type': trace_type, 'freq': f, 'pae': p})
 
-        # --- YARDIMCI FONKSİYON: Otomatik Basamak Sayısı Tespiti ---
         def get_max_decimals(val_list):
             max_d = 0
             for val in val_list:
@@ -358,11 +363,10 @@ class BroadbandOptimumSelector(BasePointSelector):
 
         all_paes = [contour['pae'] for freq in freqs for contour in freq_geoms[freq]]
         freqs_ghz = [f / 1e9 for f in freqs]
-
         pae_dec = get_max_decimals(all_paes)
         freq_dec = get_max_decimals(freqs_ghz)
 
-        # 1. Global Min/Max PAE değerlerini hesapla
+        # Calculate global minimum and maximum PAE boundaries
         z_min, z_max = min(all_paes), max(all_paes)
         if z_min == z_max:
             z_min -= 5.0
@@ -370,7 +374,7 @@ class BroadbandOptimumSelector(BasePointSelector):
 
         worst_case_pae = min([freq_geoms[freqs[i]][best_state[i]]['pae'] for i in range(num_freqs)])
 
-        # 2. Smith Chart İskeleti
+        # Construct Smith Chart spatial skeleton
         smith_grp = "smith_chart_grp"
         theta = np.linspace(0, 2 * np.pi, 100)
         x_smith, y_smith = np.cos(theta), np.sin(theta)
@@ -391,13 +395,11 @@ class BroadbandOptimumSelector(BasePointSelector):
                                     mode='lines', line=dict(color='lightgray', dash='dot'),
                                     legendgroup=smith_grp, showlegend=False), 'base')
 
-        # 3. Topografik Konturları Çiz
+        # Draw topographical frequency contours
         color_palette = pc.qualitative.Plotly
-
         for i in range(num_freqs):
             freq = freqs[i]
             f_ghz = freq / 1e9
-
             hex_color = color_palette[i % len(color_palette)].lstrip('#')
             r, g, b = tuple(int(hex_color[j:j + 2], 16) for j in (0, 2, 4))
             line_color = f'rgb({r},{g},{b})'
@@ -435,10 +437,9 @@ class BroadbandOptimumSelector(BasePointSelector):
                     push_trace(trace_line, 'contour', f=f_ghz, p=pae_val)
                     first_island = False
 
-        # --- YENİ BÖLÜM: 4.A - HAM (UNOPTIMIZED) KESİŞİM ALANI ---
+        # Render raw unoptimized intersection area
         raw_intersection = None
         for freq in freqs:
-            # worst_case_pae seviyesine en yakın konturu bul
             best_diff = float('inf')
             target_geom = None
             for contour in freq_geoms[freq]:
@@ -459,7 +460,6 @@ class BroadbandOptimumSelector(BasePointSelector):
             else:
                 raw_geoms_to_plot = [raw_intersection]
 
-        # Ham Alanı Mavi Renkte Çiz (Gerçek Kesişim Sınırları)
         raw_area_grp = "raw_area_grp"
         first_raw_geom = True
         for geom in raw_geoms_to_plot:
@@ -476,8 +476,7 @@ class BroadbandOptimumSelector(BasePointSelector):
                 ), 'volume')
                 first_raw_geom = False
 
-        # --- GÜNCELLENEN BÖLÜM: 4.B - OPTİMİZE EDİLMİŞ HEDEF ALAN ---
-        # Z-Fighting (Çakışma) olmaması için optimize edilmiş alanı 0.005 birim yukarı çiziyoruz.
+        # Render optimized target area
         opt_area_grp = "opt_area_grp"
         first_opt_geom = True
         opt_z_height = worst_case_pae + 0.005
@@ -496,7 +495,7 @@ class BroadbandOptimumSelector(BasePointSelector):
                 ), 'volume')
                 first_opt_geom = False
 
-        # 5. Optimum Target Axis
+        # Plot optimum target axis
         push_trace(go.Scatter3d(
             x=[cx, cx], y=[cy, cy], z=[z_min, worst_case_pae],
             mode='lines+markers', line=dict(color='black', width=6),
@@ -504,7 +503,7 @@ class BroadbandOptimumSelector(BasePointSelector):
             name=f'Optimum Axis (Limit: {worst_case_pae:.{pae_dec}f})'
         ), 'target')
 
-        # --- AÇILIR MENÜ (DROPDOWN) FİLTRELERİ ---
+        # Configure dropdown filters
         unique_freqs = sorted(list(set([m['freq'] for m in trace_metadata if m['type'] == 'contour'])))
         unique_paes = sorted(list(set([m['pae'] for m in trace_metadata if m['type'] == 'contour'])))
 
@@ -538,7 +537,7 @@ class BroadbandOptimumSelector(BasePointSelector):
             freq_buttons.append(dict(label=f"🚫 Hide {f:.{freq_dec}f} GHz", method="restyle",
                                      args=[{"visible": build_vis_array('freq', f, 'hide')}]))
 
-        # 6. Görsel Düzen (Layout)
+        # Define rendering layout
         fig.update_layout(
             title=dict(text=f"{graph_name} - 3D PAE Landscape & Dual Intersection Areas", font=dict(size=20)),
             scene=dict(
@@ -559,16 +558,10 @@ class BroadbandOptimumSelector(BasePointSelector):
                 groupclick="toggleitem"
             ),
             updatemenus=[
-                dict(
-                    buttons=freq_buttons, direction="down", showactive=True,
-                    x=0.01, xanchor="left", y=1.08, yanchor="top",
-                    font=dict(size=13, color="black"), bgcolor="white", bordercolor="gray"
-                ),
-                dict(
-                    buttons=pae_buttons, direction="down", showactive=True,
-                    x=0.25, xanchor="left", y=1.08, yanchor="top",
-                    font=dict(size=13, color="black"), bgcolor="white", bordercolor="gray"
-                )
+                dict(buttons=freq_buttons, direction="down", showactive=True, x=0.01, xanchor="left", y=1.08,
+                     yanchor="top", font=dict(size=13, color="black"), bgcolor="white", bordercolor="gray"),
+                dict(buttons=pae_buttons, direction="down", showactive=True, x=0.25, xanchor="left", y=1.08,
+                     yanchor="top", font=dict(size=13, color="black"), bgcolor="white", bordercolor="gray")
             ]
         )
 
@@ -577,7 +570,9 @@ class BroadbandOptimumSelector(BasePointSelector):
         fig.add_annotation(text="PAE Filter:", x=0.25, y=1.12, xref="paper", yref="paper", showarrow=False,
                            font=dict(size=14, color="black"), align="left")
 
-        filename = os.path.join(config.GRAPHS_DIR, f"{graph_name}_3D.html")
+        target_dir = save_dir if save_dir else config.GRAPHS_DIR
+        filename = os.path.join(target_dir, f"{graph_name}_3D.html")
+
         try:
             fig.write_html(filename)
             LOGGER.info(f"└── Successfully exported advanced interactive 3D HTML render to: {filename}")

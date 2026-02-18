@@ -4,16 +4,21 @@ from datetime import datetime
 
 ##################################################
 # PATH MANAGEMENT INITIALIZATION
-timestamp = datetime.now().strftime("%y.%m.%d-%H.%M.%S")
-RUN_DIR = os.path.join("outputs", f"RUN {timestamp}")
+AWR_PATH = r"C:\Program Files (x86)\AWR\AWRDE\19\MWOffice.exe"
+PROJECT_TEMPLATE_PATH = r"C:\Users\Public\Documents\AWR Projects\loadpull.emp"
+
+TIMESTAMP = datetime.now().strftime("%y.%m.%d-%H.%M.%S")
+RUN_DIR = os.path.join("outputs", f"RUN {TIMESTAMP}")
 
 CSV_DIR = os.path.join(RUN_DIR, "csv results")
 LOGS_DIR = os.path.join(RUN_DIR, "logs")
 GRAPHS_DIR = os.path.join(RUN_DIR, "graphs")
+EMP_DIR = os.path.join(RUN_DIR, "EMP Files")
 
 os.makedirs(CSV_DIR, exist_ok=True)
 os.makedirs(LOGS_DIR, exist_ok=True)
 os.makedirs(GRAPHS_DIR, exist_ok=True)
+os.makedirs(EMP_DIR, exist_ok=True)
 ##################################################
 
 import objects
@@ -49,14 +54,14 @@ STATE_CONS = [
 STATE_VAR = [
     objects.State(
         name="P_in (dBm)",
-        value="30",
+        value=generate_sweep_values(27,30,1),
         element=[
             objects.Element(name="PORT1.P1", arg="Pwr")
         ]
     ),
     objects.State(
         name="VGS (V)",
-        value="-2.9",
+        value=generate_sweep_values(-2.8,-2.9,0.05),
         element=[
             objects.Element(name="DCVS.VGS", arg="V"),
         ]
