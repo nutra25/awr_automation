@@ -1,4 +1,4 @@
-from logger import LOGGER
+from logger.logger import LOGGER
 
 
 def configure_schematic_element(

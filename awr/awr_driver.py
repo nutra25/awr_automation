@@ -15,7 +15,7 @@ from awr.project.awr_project_saveas import save_project_as
 from awr.project.open_project import open_project
 
 from config import SCHEMATIC_NAME
-from logger import LOGGER
+from logger.logger import LOGGER
 
 
 class AWRDriver:

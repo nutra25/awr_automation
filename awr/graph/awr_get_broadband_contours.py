@@ -1,6 +1,6 @@
 import math
 from typing import Dict, List, Any
-from logger import LOGGER
+from logger.logger import LOGGER
 
 def extract_graph_data(app_instance: Any, graph_name: str) -> Dict[float, List[Dict[str, Any]]]:
     """

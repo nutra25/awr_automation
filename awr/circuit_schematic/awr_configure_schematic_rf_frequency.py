@@ -1,5 +1,5 @@
 from typing import Union, List
-from logger import LOGGER
+from logger.logger import LOGGER
 
 
 def configure_schematic_rf_frequency(app_instance, schematic_name: str, frequencies: Union[float, List[float]]):

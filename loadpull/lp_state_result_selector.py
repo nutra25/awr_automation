@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List
-import math
-from logger import LOGGER
+from logger.logger import LOGGER
 import objects
 
 

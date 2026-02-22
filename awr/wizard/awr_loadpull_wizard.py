@@ -1,6 +1,6 @@
 from typing import Dict, Any
 import time
-from logger import LOGGER
+from logger.logger import LOGGER
 
 
 def run_loadpull_wizard(app_instance, config_params: Dict[str, Any]):

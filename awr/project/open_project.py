@@ -1,5 +1,5 @@
 import os
-from logger import LOGGER
+from logger.logger import LOGGER
 
 
 def open_project(app_instance: any, project_path: str) -> bool:

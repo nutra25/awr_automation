@@ -1,4 +1,11 @@
+"""
+lp_iteration_point_selector.py
+Defines strategies for selecting the optimal point from load-pull contours.
+Delegates all persistent storage operations strictly to the central DataExporter.
+"""
+
 import os
+import io
 import math
 from abc import ABC, abstractmethod
 from typing import Tuple, Any, Dict, List, Optional
@@ -9,8 +16,9 @@ from shapely.geometry import Polygon
 from shapely.ops import unary_union
 import matplotlib.pyplot as plt
 import skrf as rf
-import config
-from logger import LOGGER
+
+# Logger module integration
+from logger.logger import LOGGER
 
 
 class BasePointSelector(ABC):
@@ -20,7 +28,7 @@ class BasePointSelector(ABC):
     """
 
     @abstractmethod
-    def select_point(self, driver: Any, graph_name: str, save_dir: Optional[str] = None) -> Tuple[str, str, str]:
+    def select_point(self, driver: Any, graph_name: str, exporter: Any = None, export_subpath: str = "") -> Tuple[str, str, str]:
         """
         Executes the selection logic and returns the designated point parameters.
         Returns a tuple of strings formatted as (Value, Magnitude, Angle).
@@ -28,7 +36,8 @@ class BasePointSelector(ABC):
         Args:
             driver: The simulator driver instance.
             graph_name: The name of the graph to analyze.
-            save_dir: Optional directory path to save generated plots.
+            exporter: The central DataExporter instance for saving generated artifacts.
+            export_subpath: The specific directory path relative to the exporter's base directory.
         """
         pass
 
@@ -36,13 +45,12 @@ class BasePointSelector(ABC):
 class MaxMarkerSelector(BasePointSelector):
     """
     Selection strategy that targets the precise location of a predefined marker.
-    Frequently applied for isolating Maximum Power or Maximum PAE coordinates.
     """
 
     def __init__(self, marker_name: str = "m1"):
         self.marker_name = marker_name
 
-    def select_point(self, driver: Any, graph_name: str, save_dir: Optional[str] = None) -> Tuple[str, str, str]:
+    def select_point(self, driver: Any, graph_name: str, exporter: Any = None, export_subpath: str = "") -> Tuple[str, str, str]:
         LOGGER.info(f"Initiating MaxMarkerSelector for graph: {graph_name}")
 
         data = driver.get_marker_data(graph_name, self.marker_name)
@@ -58,7 +66,6 @@ class MaxMarkerSelector(BasePointSelector):
 class TradeOffSelector(BasePointSelector):
     """
     Selection strategy that calculates a weighted central point between two distinct markers.
-    Allows for dynamic bias adjustment between competing performance metrics.
     """
 
     def __init__(self, marker1: str = "m1", marker2: str = "m2", weight: float = 0.5):
@@ -66,7 +73,7 @@ class TradeOffSelector(BasePointSelector):
         self.m2 = marker2
         self.weight = weight
 
-    def select_point(self, driver: Any, graph_name: str, save_dir: Optional[str] = None) -> Tuple[str, str, str]:
+    def select_point(self, driver: Any, graph_name: str, exporter: Any = None, export_subpath: str = "") -> Tuple[str, str, str]:
         LOGGER.info(f"Initiating TradeOffSelector between markers '{self.m1}' and '{self.m2}'")
 
         d1 = driver.get_marker_data(graph_name, self.m1)
@@ -96,7 +103,7 @@ class BroadbandOptimumSelector(BasePointSelector):
     def __init__(self, show_plot: bool = True):
         self.show_plot = show_plot
 
-    def select_point(self, driver: Any, graph_name: str, save_dir: Optional[str] = None) -> Tuple[str, str, str]:
+    def select_point(self, driver: Any, graph_name: str, exporter: Any = None, export_subpath: str = "") -> Tuple[str, str, str]:
         LOGGER.info(f"Initiating BroadbandOptimumSelector for graph: {graph_name}")
 
         freq_geoms, freqs, num_freqs = self._fetch_and_process_contours(driver, graph_name)
@@ -130,11 +137,11 @@ class BroadbandOptimumSelector(BasePointSelector):
             LOGGER.info(f"├── Optimal intersection identified with worst-case PAE threshold: {worst_case_pae}")
             LOGGER.info(f"├── Target centroid calculated at Magnitude={mag:.4f}, Angle={ang:.2f}°")
 
-            if self.show_plot:
-                self._generate_plot(graph_name, freqs, num_freqs, freq_geoms, best_state, geoms_to_plot, cx, cy,
-                                    save_dir)
-                self._generate_plot_3d_plotly(graph_name, freqs, num_freqs, freq_geoms, best_state, geoms_to_plot, cx,
-                                              cy, save_dir)
+            if self.show_plot and exporter:
+                self._generate_plot(graph_name, freqs, num_freqs, freq_geoms, best_state, geoms_to_plot, cx, cy, exporter, export_subpath)
+                self._generate_plot_3d_plotly(graph_name, freqs, num_freqs, freq_geoms, best_state, geoms_to_plot, cx, cy, exporter, export_subpath)
+            elif self.show_plot and not exporter:
+                LOGGER.warning("└── Visualization is enabled, but no DataExporter was provided. Skipping plot generation.")
             else:
                 LOGGER.info("└── Visualization is disabled; skipping plot generation.")
 
@@ -186,8 +193,7 @@ class BroadbandOptimumSelector(BasePointSelector):
         valid_freqs = [f for f in freqs if f in freq_geoms]
         return freq_geoms, valid_freqs, len(valid_freqs)
 
-    def _find_best_intersection(self, freq_geoms: Dict, freqs: List[float], num_freqs: int) -> Tuple[
-        Any, Optional[List[int]], float]:
+    def _find_best_intersection(self, freq_geoms: Dict, freqs: List[float], num_freqs: int) -> Tuple[Any, Optional[List[int]], float]:
         state = [0] * num_freqs
         best_state = None
         best_intersection = None
@@ -217,8 +223,7 @@ class BroadbandOptimumSelector(BasePointSelector):
                 best_intersection = current_geom
                 best_state = list(state)
                 min_base_pae = min([freq_geoms[freqs[i]][state[i]]['pae'] for i in range(num_freqs)])
-                LOGGER.debug(
-                    f"├── Common baseline discovered at iteration step {step} with minimum PAE of {min_base_pae}")
+                LOGGER.debug(f"├── Common baseline discovered at iteration step {step} with minimum PAE of {min_base_pae}")
                 break
 
             current_paes = []
@@ -266,22 +271,22 @@ class BroadbandOptimumSelector(BasePointSelector):
                             improvement_in_this_pass = True
                             freq_ghz = freqs[i] / 1e9
                             new_pae = freq_geoms[freqs[i]][state[i]]['pae']
-                            LOGGER.debug(
-                                f"├── [Iteration {pass_num}] Optimized {freq_ghz:.2f} GHz contour upward. Adjusted PAE: {new_pae}")
+                            LOGGER.debug(f"├── [Iteration {pass_num}] Optimized {freq_ghz:.2f} GHz contour upward. Adjusted PAE: {new_pae}")
 
                 if not improvement_in_this_pass:
                     LOGGER.debug("├── Optimization process converged to a stable state")
                     break
                 pass_num += 1
 
-        worst_case_pae = min(
-            [freq_geoms[freqs[i]][best_state[i]]['pae'] for i in range(num_freqs)]) if best_state else 0.0
+        worst_case_pae = min([freq_geoms[freqs[i]][best_state[i]]['pae'] for i in range(num_freqs)]) if best_state else 0.0
         return best_intersection, best_state, worst_case_pae
 
     def _generate_plot(self, graph_name: str, freqs: List[float], num_freqs: int, freq_geoms: Dict,
                        best_state: List[int], geoms_to_plot: List[Any], cx: float, cy: float,
-                       save_dir: Optional[str] = None):
-
+                       exporter: Any, export_subpath: str):
+        """
+        Generates the 2D SVG plot in memory and delegates the saving process to the DataExporter.
+        """
         LOGGER.info("├── Generating 2D vector graphic rendering of the intersection dataset")
 
         plt.figure(figsize=(14, 12), dpi=120)
@@ -322,25 +327,23 @@ class BroadbandOptimumSelector(BasePointSelector):
         plt.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), fontsize=10)
         plt.tight_layout()
 
-        target_dir = save_dir if save_dir else config.GRAPHS_DIR
-        filename = os.path.join(target_dir, f"{graph_name}_2D.svg")
-
+        # Isolate file operations: Generate bytes in memory and send to exporter
         try:
-            plt.savefig(filename, bbox_inches='tight', format='svg')
-            LOGGER.info(f"├── Successfully exported 2D graphic render to: {filename}")
+            buf = io.BytesIO()
+            plt.savefig(buf, bbox_inches='tight', format='svg')
+            filename = os.path.join(export_subpath, f"{graph_name}_2D.svg")
+            exporter.save_binary(filename, buf.getvalue())
         except Exception as e:
-            LOGGER.error(f"├── Encountered an error during 2D graphic generation: {e}")
+            LOGGER.error(f"├── Encountered an error during 2D graphic memory serialization: {e}")
         finally:
             plt.close()
+            buf.close()
 
     def _generate_plot_3d_plotly(self, graph_name: str, freqs: List[float], num_freqs: int, freq_geoms: Dict,
                                  best_state: List[int], geoms_to_plot: List[Any], cx: float, cy: float,
-                                 save_dir: Optional[str] = None):
+                                 exporter: Any, export_subpath: str):
         """
-        Generates an interactive 3D HTML plot using Plotly.
-        Features: Z=PAE topographical mapping, Dynamic Line Width,
-        Auto-detected decimal precision, Grouped legends, and Dropdown filters.
-        Shows both the RAW (Unoptimized) Intersection and the OPTIMIZED Target Area.
+        Generates the 3D HTML plot in memory and delegates the saving process to the DataExporter.
         """
         LOGGER.info("├── Generating Advanced Interactive 3D Plotly rendering (Z-Axis = PAE)")
 
@@ -366,7 +369,6 @@ class BroadbandOptimumSelector(BasePointSelector):
         pae_dec = get_max_decimals(all_paes)
         freq_dec = get_max_decimals(freqs_ghz)
 
-        # Calculate global minimum and maximum PAE boundaries
         z_min, z_max = min(all_paes), max(all_paes)
         if z_min == z_max:
             z_min -= 5.0
@@ -374,7 +376,6 @@ class BroadbandOptimumSelector(BasePointSelector):
 
         worst_case_pae = min([freq_geoms[freqs[i]][best_state[i]]['pae'] for i in range(num_freqs)])
 
-        # Construct Smith Chart spatial skeleton
         smith_grp = "smith_chart_grp"
         theta = np.linspace(0, 2 * np.pi, 100)
         x_smith, y_smith = np.cos(theta), np.sin(theta)
@@ -395,7 +396,6 @@ class BroadbandOptimumSelector(BasePointSelector):
                                     mode='lines', line=dict(color='lightgray', dash='dot'),
                                     legendgroup=smith_grp, showlegend=False), 'base')
 
-        # Draw topographical frequency contours
         color_palette = pc.qualitative.Plotly
         for i in range(num_freqs):
             freq = freqs[i]
@@ -437,7 +437,6 @@ class BroadbandOptimumSelector(BasePointSelector):
                     push_trace(trace_line, 'contour', f=f_ghz, p=pae_val)
                     first_island = False
 
-        # Render raw unoptimized intersection area
         raw_intersection = None
         for freq in freqs:
             best_diff = float('inf')
@@ -476,7 +475,6 @@ class BroadbandOptimumSelector(BasePointSelector):
                 ), 'volume')
                 first_raw_geom = False
 
-        # Render optimized target area
         opt_area_grp = "opt_area_grp"
         first_opt_geom = True
         opt_z_height = worst_case_pae + 0.005
@@ -495,7 +493,6 @@ class BroadbandOptimumSelector(BasePointSelector):
                 ), 'volume')
                 first_opt_geom = False
 
-        # Plot optimum target axis
         push_trace(go.Scatter3d(
             x=[cx, cx], y=[cy, cy], z=[z_min, worst_case_pae],
             mode='lines+markers', line=dict(color='black', width=6),
@@ -503,7 +500,6 @@ class BroadbandOptimumSelector(BasePointSelector):
             name=f'Optimum Axis (Limit: {worst_case_pae:.{pae_dec}f})'
         ), 'target')
 
-        # Configure dropdown filters
         unique_freqs = sorted(list(set([m['freq'] for m in trace_metadata if m['type'] == 'contour'])))
         unique_paes = sorted(list(set([m['pae'] for m in trace_metadata if m['type'] == 'contour'])))
 
@@ -519,25 +515,18 @@ class BroadbandOptimumSelector(BasePointSelector):
                         vis.append(m[filter_type] != value)
             return vis
 
-        pae_buttons = [
-            dict(label="👁️ Show All PAE", method="restyle", args=[{"visible": [True] * len(trace_metadata)}])]
+        pae_buttons = [dict(label="👁️ Show All PAE", method="restyle", args=[{"visible": [True] * len(trace_metadata)}])]
         for p in unique_paes:
-            pae_buttons.append(dict(label=f"🎯 Isolate PAE: {p:.{pae_dec}f}", method="restyle",
-                                    args=[{"visible": build_vis_array('pae', p, 'isolate')}]))
+            pae_buttons.append(dict(label=f"🎯 Isolate PAE: {p:.{pae_dec}f}", method="restyle", args=[{"visible": build_vis_array('pae', p, 'isolate')}]))
         for p in unique_paes:
-            pae_buttons.append(dict(label=f"🚫 Hide PAE: {p:.{pae_dec}f}", method="restyle",
-                                    args=[{"visible": build_vis_array('pae', p, 'hide')}]))
+            pae_buttons.append(dict(label=f"🚫 Hide PAE: {p:.{pae_dec}f}", method="restyle", args=[{"visible": build_vis_array('pae', p, 'hide')}]))
 
-        freq_buttons = [
-            dict(label="👁️ Show All Freqs", method="restyle", args=[{"visible": [True] * len(trace_metadata)}])]
+        freq_buttons = [dict(label="👁️ Show All Freqs", method="restyle", args=[{"visible": [True] * len(trace_metadata)}])]
         for f in unique_freqs:
-            freq_buttons.append(dict(label=f"🎯 Isolate {f:.{freq_dec}f} GHz", method="restyle",
-                                     args=[{"visible": build_vis_array('freq', f, 'isolate')}]))
+            freq_buttons.append(dict(label=f"🎯 Isolate {f:.{freq_dec}f} GHz", method="restyle", args=[{"visible": build_vis_array('freq', f, 'isolate')}]))
         for f in unique_freqs:
-            freq_buttons.append(dict(label=f"🚫 Hide {f:.{freq_dec}f} GHz", method="restyle",
-                                     args=[{"visible": build_vis_array('freq', f, 'hide')}]))
+            freq_buttons.append(dict(label=f"🚫 Hide {f:.{freq_dec}f} GHz", method="restyle", args=[{"visible": build_vis_array('freq', f, 'hide')}]))
 
-        # Define rendering layout
         fig.update_layout(
             title=dict(text=f"{graph_name} - 3D PAE Landscape & Dual Intersection Areas", font=dict(size=20)),
             scene=dict(
@@ -558,23 +547,18 @@ class BroadbandOptimumSelector(BasePointSelector):
                 groupclick="toggleitem"
             ),
             updatemenus=[
-                dict(buttons=freq_buttons, direction="down", showactive=True, x=0.01, xanchor="left", y=1.08,
-                     yanchor="top", font=dict(size=13, color="black"), bgcolor="white", bordercolor="gray"),
-                dict(buttons=pae_buttons, direction="down", showactive=True, x=0.25, xanchor="left", y=1.08,
-                     yanchor="top", font=dict(size=13, color="black"), bgcolor="white", bordercolor="gray")
+                dict(buttons=freq_buttons, direction="down", showactive=True, x=0.01, xanchor="left", y=1.08, yanchor="top", font=dict(size=13, color="black"), bgcolor="white", bordercolor="gray"),
+                dict(buttons=pae_buttons, direction="down", showactive=True, x=0.25, xanchor="left", y=1.08, yanchor="top", font=dict(size=13, color="black"), bgcolor="white", bordercolor="gray")
             ]
         )
 
-        fig.add_annotation(text="Frequency Filter:", x=0.01, y=1.12, xref="paper", yref="paper", showarrow=False,
-                           font=dict(size=14, color="black"), align="left")
-        fig.add_annotation(text="PAE Filter:", x=0.25, y=1.12, xref="paper", yref="paper", showarrow=False,
-                           font=dict(size=14, color="black"), align="left")
+        fig.add_annotation(text="Frequency Filter:", x=0.01, y=1.12, xref="paper", yref="paper", showarrow=False, font=dict(size=14, color="black"), align="left")
+        fig.add_annotation(text="PAE Filter:", x=0.25, y=1.12, xref="paper", yref="paper", showarrow=False, font=dict(size=14, color="black"), align="left")
 
-        target_dir = save_dir if save_dir else config.GRAPHS_DIR
-        filename = os.path.join(target_dir, f"{graph_name}_3D.html")
-
+        # Isolate file operations: Generate HTML string in memory and send to exporter
         try:
-            fig.write_html(filename)
-            LOGGER.info(f"└── Successfully exported advanced interactive 3D HTML render to: {filename}")
+            html_content = fig.to_html(include_plotlyjs='cdn', full_html=True)
+            filename = os.path.join(export_subpath, f"{graph_name}_3D.html")
+            exporter.save_text(filename, html_content)
         except Exception as e:
-            LOGGER.error(f"└── Encountered an error during 3D HTML generation: {e}")
+            LOGGER.error(f"└── Encountered an error during 3D HTML text serialization: {e}")
