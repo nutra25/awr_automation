@@ -1,0 +1,13 @@
+LOG SESSION INITIALIZED: 25.02.2026 16:07
+------------------------------------------------------------
+16:07:58 | awr_driver.py                                 | INFO     | ├── Initializing AWR Microwave Office Application...
+16:07:58 | awr_driver.py                                 | INFO     | └── Successfully connected to active session.
+16:07:58 | awr_driver.py                                 | INFO     | ├── Instantiating domain-specific manager modules...
+16:07:58 | awr_driver.py                                 | INFO     | └── Domain managers successfully initialized.
+16:07:58 | main.py                                       | INFO     | ├── Loading Project Template...
+16:07:58 | open_project.py                               | INFO     | ├── Initiating project load operation from path: C:\Users\Public\Documents\AWR Projects\loadpull.emp
+16:08:12 | open_project.py                               | INFO     | └── Successfully loaded the specified project file: loadpull.emp
+16:08:12 | dataexporter.py                               | INFO     | ├── Initializing CSV storage file at: outputs\RUN 26.02.25-16.07.57\csv results\simulation_results.csv
+16:08:12 | dataexporter.py                               | INFO     | └── Successfully generated headers for csv results\simulation_results.csv.
+16:08:12 | main.py                                       | INFO     | Starting Simulation Sequence
+16:08:12 | main.py                                       | CRITICAL | └── Unhandled Exception in Main Loop: 'SimulationManager' object has no attribute 'state_handler'

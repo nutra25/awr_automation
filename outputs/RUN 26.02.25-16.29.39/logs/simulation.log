@@ -1,0 +1,193 @@
+LOG SESSION INITIALIZED: 25.02.2026 16:29
+------------------------------------------------------------
+16:29:40 | awr_driver.py                                 | INFO     | ├── Initializing AWR Microwave Office Application...
+16:29:40 | awr_driver.py                                 | INFO     | └── Successfully connected to active session.
+16:29:40 | awr_driver.py                                 | INFO     | ├── Instantiating domain-specific manager modules...
+16:29:40 | awr_driver.py                                 | INFO     | └── Domain managers successfully initialized.
+16:29:40 | main.py                                       | INFO     | ├── Loading Project Template...
+16:29:40 | open_project.py                               | INFO     | ├── Initiating project load operation from path: C:\Users\Public\Documents\AWR Projects\loadpull.emp
+16:30:35 | open_project.py                               | INFO     | └── Successfully loaded the specified project file: loadpull.emp
+16:30:35 | dataexporter.py                               | INFO     | ├── Initializing CSV storage file at: outputs\RUN 26.02.25-16.29.39\csv results\simulation_results.csv
+16:30:35 | dataexporter.py                               | INFO     | └── Successfully generated headers for csv results\simulation_results.csv.
+16:30:35 | main.py                                       | INFO     | Starting Simulation Sequence
+16:30:35 | awr_configure_schematic_rf_frequency.py       | INFO     | Configuring RF Frequencies: 'VDS40_Load_Pull'
+16:30:35 | awr_configure_schematic_rf_frequency.py       | INFO     |   ├── Added Frequency: 12.7 GHz
+16:30:35 | awr_configure_schematic_rf_frequency.py       | INFO     |   ├── Added Frequency: 12.75 GHz
+16:30:35 | awr_configure_schematic_rf_frequency.py       | INFO     |   ├── Added Frequency: 12.8 GHz
+16:30:35 | awr_configure_schematic_rf_frequency.py       | INFO     |   ├── Added Frequency: 12.85 GHz
+16:30:35 | awr_configure_schematic_rf_frequency.py       | INFO     |   ├── Added Frequency: 12.9 GHz
+16:30:35 | awr_configure_schematic_rf_frequency.py       | INFO     |   ├── Added Frequency: 12.95 GHz
+16:30:35 | awr_configure_schematic_rf_frequency.py       | INFO     |   ├── Added Frequency: 13.0 GHz
+16:30:35 | awr_configure_schematic_rf_frequency.py       | INFO     |   ├── Added Frequency: 13.05 GHz
+16:30:35 | awr_configure_schematic_rf_frequency.py       | INFO     |   ├── Added Frequency: 13.1 GHz
+16:30:35 | awr_configure_schematic_rf_frequency.py       | INFO     |   ├── Added Frequency: 13.15 GHz
+16:30:35 | awr_configure_schematic_rf_frequency.py       | INFO     |   ├── Added Frequency: 13.2 GHz
+16:30:35 | awr_configure_schematic_rf_frequency.py       | INFO     |   └── Added Frequency: 13.25 GHz
+16:30:35 | awr_configure_schematic_element.py            | INFO     | Configuring Element: 'DCVS.VDS' in 'VDS40_Load_Pull'
+16:30:35 | awr_configure_schematic_element.py            | INFO     |   └── V: [40] -> [40]
+16:30:35 | main.py                                       | INFO     | ├── State Matrix Generated: 1 unique combinations.
+16:30:35 | main.py                                       | INFO     | ├── PROCESSING STATE 1/1: ('30', '-2.9')
+16:30:35 | awr_configure_schematic_element.py            | INFO     | Configuring Element: 'PORT1.P1' in 'VDS40_Load_Pull'
+16:30:35 | awr_configure_schematic_element.py            | INFO     |   └── Pwr: [30] -> [30]
+16:30:35 | awr_configure_schematic_element.py            | INFO     | Configuring Element: 'DCVS.VGS' in 'VDS40_Load_Pull'
+16:30:35 | awr_configure_schematic_element.py            | INFO     |   └── V: [-2.90] -> [-2.9]
+16:30:35 | lp_sequence.py                                | INFO     | │   ├── Iteration 1/2 (Radius: 0.99)
+16:30:35 | awr_configure_schematic_element.py            | INFO     | Configuring Element: 'HBTUNER3.SourceTuner' in 'VDS40_Load_Pull'
+16:30:35 | awr_configure_schematic_element.py            | INFO     |   ├── Mag1: [0.8766064643819682] -> [calcMag(50,0,z0)]
+16:30:35 | awr_configure_schematic_element.py            | INFO     |   └── Ang1: [-61.866112938422496] -> [calcAng(50,0,z0)]
+16:30:35 | awr_configure_schematic_element.py            | INFO     | Configuring Element: 'HBTUNER3.LoadTuner' in 'VDS40_Load_Pull'
+16:30:35 | awr_configure_schematic_element.py            | INFO     |   ├── Mag1: [0.6846693743457068] -> [0.0]
+16:30:35 | awr_configure_schematic_element.py            | INFO     |   └── Ang1: [-121.1290125435394] -> [0.0]
+16:30:35 | awr_loadpull_wizard.py                        | INFO     | Starting Load Pull Wizard Automation Sequence
+16:30:35 | awr_loadpull_wizard.py                        | INFO     |   ├── Configuring Wizard Parameters:
+16:30:35 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_MaxHarmonic: [3] -> [1]
+16:30:35 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_DataFileName: [LP_Data] -> [source_data_1]
+16:30:35 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_OverwriteDataFile: [0] -> [True]
+16:30:35 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_Sweep_Source1: [0] -> [True]
+16:30:35 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_Sweep_Load1: [1] -> [False]
+16:30:35 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_Source1_Density: [Medium] -> [Extra fine]
+16:30:35 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_Source1_Radius: [0.6] -> [0.99]
+16:30:35 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_Source1_CenterMagnitude: [0.8] -> [0.0]
+16:30:35 | awr_loadpull_wizard.py                        | INFO     |     └── LP_Source1_CenterAngle: [180.0] -> [0.0]
+16:30:35 | awr_loadpull_wizard.py                        | INFO     |   ├── Configuration Summary: 9 Success, 0 Failed.
+16:30:35 | awr_loadpull_wizard.py                        | INFO     |   ├── Triggering Load Pull Execution (Exec)...
+16:30:46 | awr_loadpull_wizard.py                        | INFO     |   └── Load Pull Process Completed Successfully.
+16:30:46 | lp_iteration_point_selector.py                | INFO     | Initiating BroadbandOptimumSelector for graph: it1_source_pull
+16:30:46 | lp_iteration_point_selector.py                | INFO     | ├── Retrieving broadband contour datasets from the application environment
+16:30:46 | awr_get_broadband_contours.py                 | INFO     | Starting Data Extraction Sequence for Graph: it1_source_pull
+16:30:48 | awr_get_broadband_contours.py                 | INFO     |   ├── Extracting Measurement Traces:
+16:30:48 | awr_get_broadband_contours.py                 | INFO     |   └── Data Extraction Process Completed Successfully
+16:30:48 | lp_iteration_point_selector.py                | INFO     | ├── Converting contour datasets into geometric polygon structures
+16:30:48 | lp_iteration_point_selector.py                | INFO     | ├── Executing intersection search algorithm
+16:30:48 | lp_iteration_point_selector.py                | INFO     | ├── Optimal intersection identified with worst-case PAE threshold: 11.75
+16:30:48 | lp_iteration_point_selector.py                | INFO     | ├── Target centroid calculated at Magnitude=0.8490, Angle=-70.73°
+16:30:48 | lp_iteration_point_selector.py                | INFO     | ├── Generating 2D vector graphic rendering of the intersection dataset
+16:30:49 | dataexporter.py                               | INFO     | ├── Saving binary content to: outputs\RUN 26.02.25-16.29.39\graphs\State No 1\it1_source_pull_2D.svg
+16:30:49 | dataexporter.py                               | INFO     | └── Binary export sequence completed successfully for graphs\State No 1\it1_source_pull_2D.svg.
+16:30:49 | lp_iteration_point_selector.py                | INFO     | ├── Generating Advanced Interactive 3D Plotly rendering (Z-Axis = PAE)
+16:30:49 | dataexporter.py                               | INFO     | ├── Saving text-based content to: outputs\RUN 26.02.25-16.29.39\graphs\State No 1\it1_source_pull_3D.html
+16:30:49 | dataexporter.py                               | INFO     | └── Text export sequence completed successfully for graphs\State No 1\it1_source_pull_3D.html.
+16:30:49 | lp_sequence.py                                | INFO     | │   ├── SP Result: Mag [0.849], Ang [-70.7]
+16:30:49 | awr_configure_schematic_element.py            | INFO     | Configuring Element: 'HBTUNER3.SourceTuner' in 'VDS40_Load_Pull'
+16:30:49 | awr_configure_schematic_element.py            | INFO     |   ├── Mag1: [calcMag(50,0,z0)] -> [0.8489950156673437]
+16:30:49 | awr_configure_schematic_element.py            | INFO     |   └── Ang1: [calcAng(50,0,z0)] -> [-70.72514306251568]
+16:30:49 | awr_configure_schematic_element.py            | INFO     | Configuring Element: 'HBTUNER3.LoadTuner' in 'VDS40_Load_Pull'
+16:30:49 | awr_configure_schematic_element.py            | INFO     |   ├── Mag1: [0.0] -> [calcMag(50,0,z0)]
+16:30:49 | awr_configure_schematic_element.py            | INFO     |   └── Ang1: [0.0] -> [calcAng(50,0,z0)]
+16:30:49 | awr_loadpull_wizard.py                        | INFO     | Starting Load Pull Wizard Automation Sequence
+16:30:49 | awr_loadpull_wizard.py                        | INFO     |   ├── Configuring Wizard Parameters:
+16:30:49 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_MaxHarmonic: [3] -> [1]
+16:30:49 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_DataFileName: [LP_Data] -> [load_data_1]
+16:30:49 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_OverwriteDataFile: [0] -> [True]
+16:30:49 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_Sweep_Load1: [1] -> [True]
+16:30:49 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_Sweep_Source1: [0] -> [False]
+16:30:49 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_Load1_Density: [Medium] -> [Extra fine]
+16:30:49 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_Load1_Radius: [0.6] -> [0.99]
+16:30:49 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_Load1_CenterMagnitude: [0.8] -> [0.0]
+16:30:49 | awr_loadpull_wizard.py                        | INFO     |     └── LP_Load1_CenterAngle: [180.0] -> [0.0]
+16:30:49 | awr_loadpull_wizard.py                        | INFO     |   ├── Configuration Summary: 9 Success, 0 Failed.
+16:30:49 | awr_loadpull_wizard.py                        | INFO     |   ├── Triggering Load Pull Execution (Exec)...
+16:30:57 | awr_loadpull_wizard.py                        | INFO     |   └── Load Pull Process Completed Successfully.
+16:30:57 | lp_iteration_point_selector.py                | INFO     | Initiating BroadbandOptimumSelector for graph: it1_load_pull
+16:30:57 | lp_iteration_point_selector.py                | INFO     | ├── Retrieving broadband contour datasets from the application environment
+16:30:57 | awr_get_broadband_contours.py                 | INFO     | Starting Data Extraction Sequence for Graph: it1_load_pull
+16:30:57 | awr_get_broadband_contours.py                 | INFO     |   ├── Extracting Measurement Traces:
+16:30:58 | awr_get_broadband_contours.py                 | INFO     |   └── Data Extraction Process Completed Successfully
+16:30:58 | lp_iteration_point_selector.py                | INFO     | ├── Converting contour datasets into geometric polygon structures
+16:30:58 | lp_iteration_point_selector.py                | INFO     | ├── Executing intersection search algorithm
+16:30:58 | lp_iteration_point_selector.py                | INFO     | ├── Optimal intersection identified with worst-case PAE threshold: 44.5
+16:30:58 | lp_iteration_point_selector.py                | INFO     | ├── Target centroid calculated at Magnitude=0.7113, Angle=-120.95°
+16:30:58 | lp_iteration_point_selector.py                | INFO     | ├── Generating 2D vector graphic rendering of the intersection dataset
+16:30:58 | dataexporter.py                               | INFO     | ├── Saving binary content to: outputs\RUN 26.02.25-16.29.39\graphs\State No 1\it1_load_pull_2D.svg
+16:30:58 | dataexporter.py                               | INFO     | └── Binary export sequence completed successfully for graphs\State No 1\it1_load_pull_2D.svg.
+16:30:58 | lp_iteration_point_selector.py                | INFO     | ├── Generating Advanced Interactive 3D Plotly rendering (Z-Axis = PAE)
+16:30:59 | dataexporter.py                               | INFO     | ├── Saving text-based content to: outputs\RUN 26.02.25-16.29.39\graphs\State No 1\it1_load_pull_3D.html
+16:30:59 | dataexporter.py                               | INFO     | └── Text export sequence completed successfully for graphs\State No 1\it1_load_pull_3D.html.
+16:30:59 | lp_sequence.py                                | INFO     | │   └── LP Result: Mag [0.711], Ang [-121.0]
+16:30:59 | lp_sequence.py                                | INFO     | │   ├── Iteration 2/2 (Radius: 0.6)
+16:30:59 | awr_configure_schematic_element.py            | INFO     | Configuring Element: 'HBTUNER3.SourceTuner' in 'VDS40_Load_Pull'
+16:30:59 | awr_configure_schematic_element.py            | INFO     |   ├── Mag1: [0.8489950156673437] -> [calcMag(50,0,z0)]
+16:30:59 | awr_configure_schematic_element.py            | INFO     |   └── Ang1: [-70.72514306251568] -> [calcAng(50,0,z0)]
+16:30:59 | awr_configure_schematic_element.py            | INFO     | Configuring Element: 'HBTUNER3.LoadTuner' in 'VDS40_Load_Pull'
+16:30:59 | awr_configure_schematic_element.py            | INFO     |   ├── Mag1: [calcMag(50,0,z0)] -> [0.7112805790942137]
+16:30:59 | awr_configure_schematic_element.py            | INFO     |   └── Ang1: [calcAng(50,0,z0)] -> [-120.95030373929735]
+16:30:59 | awr_loadpull_wizard.py                        | INFO     | Starting Load Pull Wizard Automation Sequence
+16:30:59 | awr_loadpull_wizard.py                        | INFO     |   ├── Configuring Wizard Parameters:
+16:30:59 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_MaxHarmonic: [3] -> [1]
+16:30:59 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_DataFileName: [LP_Data] -> [source_data_2]
+16:30:59 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_OverwriteDataFile: [0] -> [True]
+16:30:59 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_Sweep_Source1: [0] -> [True]
+16:30:59 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_Sweep_Load1: [1] -> [False]
+16:30:59 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_Source1_Density: [Medium] -> [Extra fine]
+16:30:59 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_Source1_Radius: [0.6] -> [0.6]
+16:30:59 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_Source1_CenterMagnitude: [0.8] -> [0.8489950156673437]
+16:30:59 | awr_loadpull_wizard.py                        | INFO     |     └── LP_Source1_CenterAngle: [180.0] -> [-70.72514306251568]
+16:30:59 | awr_loadpull_wizard.py                        | INFO     |   ├── Configuration Summary: 9 Success, 0 Failed.
+16:30:59 | awr_loadpull_wizard.py                        | INFO     |   ├── Triggering Load Pull Execution (Exec)...
+16:31:06 | awr_loadpull_wizard.py                        | INFO     |   └── Load Pull Process Completed Successfully.
+16:31:06 | lp_iteration_point_selector.py                | INFO     | Initiating BroadbandOptimumSelector for graph: it2_source_pull
+16:31:06 | lp_iteration_point_selector.py                | INFO     | ├── Retrieving broadband contour datasets from the application environment
+16:31:06 | awr_get_broadband_contours.py                 | INFO     | Starting Data Extraction Sequence for Graph: it2_source_pull
+16:31:07 | awr_get_broadband_contours.py                 | INFO     |   ├── Extracting Measurement Traces:
+16:31:07 | awr_get_broadband_contours.py                 | INFO     |   └── Data Extraction Process Completed Successfully
+16:31:07 | lp_iteration_point_selector.py                | INFO     | ├── Converting contour datasets into geometric polygon structures
+16:31:07 | lp_iteration_point_selector.py                | INFO     | ├── Executing intersection search algorithm
+16:31:07 | lp_iteration_point_selector.py                | INFO     | ├── Optimal intersection identified with worst-case PAE threshold: 47.0
+16:31:07 | lp_iteration_point_selector.py                | INFO     | ├── Target centroid calculated at Magnitude=0.8766, Angle=-61.87°
+16:31:07 | lp_iteration_point_selector.py                | INFO     | ├── Generating 2D vector graphic rendering of the intersection dataset
+16:31:08 | dataexporter.py                               | INFO     | ├── Saving binary content to: outputs\RUN 26.02.25-16.29.39\graphs\State No 1\it2_source_pull_2D.svg
+16:31:08 | dataexporter.py                               | INFO     | └── Binary export sequence completed successfully for graphs\State No 1\it2_source_pull_2D.svg.
+16:31:08 | lp_iteration_point_selector.py                | INFO     | ├── Generating Advanced Interactive 3D Plotly rendering (Z-Axis = PAE)
+16:31:08 | dataexporter.py                               | INFO     | ├── Saving text-based content to: outputs\RUN 26.02.25-16.29.39\graphs\State No 1\it2_source_pull_3D.html
+16:31:08 | dataexporter.py                               | INFO     | └── Text export sequence completed successfully for graphs\State No 1\it2_source_pull_3D.html.
+16:31:08 | lp_sequence.py                                | INFO     | │   ├── SP Result: Mag [0.877], Ang [-61.9]
+16:31:08 | awr_configure_schematic_element.py            | INFO     | Configuring Element: 'HBTUNER3.SourceTuner' in 'VDS40_Load_Pull'
+16:31:08 | awr_configure_schematic_element.py            | INFO     |   ├── Mag1: [calcMag(50,0,z0)] -> [0.8766064643819682]
+16:31:08 | awr_configure_schematic_element.py            | INFO     |   └── Ang1: [calcAng(50,0,z0)] -> [-61.866112938422496]
+16:31:08 | awr_configure_schematic_element.py            | INFO     | Configuring Element: 'HBTUNER3.LoadTuner' in 'VDS40_Load_Pull'
+16:31:08 | awr_configure_schematic_element.py            | INFO     |   ├── Mag1: [0.7112805790942137] -> [calcMag(50,0,z0)]
+16:31:08 | awr_configure_schematic_element.py            | INFO     |   └── Ang1: [-120.95030373929735] -> [calcAng(50,0,z0)]
+16:31:08 | awr_loadpull_wizard.py                        | INFO     | Starting Load Pull Wizard Automation Sequence
+16:31:08 | awr_loadpull_wizard.py                        | INFO     |   ├── Configuring Wizard Parameters:
+16:31:08 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_MaxHarmonic: [3] -> [1]
+16:31:08 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_DataFileName: [LP_Data] -> [load_data_2]
+16:31:08 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_OverwriteDataFile: [0] -> [True]
+16:31:08 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_Sweep_Load1: [1] -> [True]
+16:31:08 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_Sweep_Source1: [0] -> [False]
+16:31:08 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_Load1_Density: [Medium] -> [Extra fine]
+16:31:08 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_Load1_Radius: [0.6] -> [0.6]
+16:31:08 | awr_loadpull_wizard.py                        | INFO     |     ├── LP_Load1_CenterMagnitude: [0.8] -> [0.7112805790942137]
+16:31:08 | awr_loadpull_wizard.py                        | INFO     |     └── LP_Load1_CenterAngle: [180.0] -> [-120.95030373929735]
+16:31:08 | awr_loadpull_wizard.py                        | INFO     |   ├── Configuration Summary: 9 Success, 0 Failed.
+16:31:08 | awr_loadpull_wizard.py                        | INFO     |   ├── Triggering Load Pull Execution (Exec)...
+16:31:14 | awr_loadpull_wizard.py                        | INFO     |   └── Load Pull Process Completed Successfully.
+16:31:14 | lp_iteration_point_selector.py                | INFO     | Initiating BroadbandOptimumSelector for graph: it2_load_pull
+16:31:14 | lp_iteration_point_selector.py                | INFO     | ├── Retrieving broadband contour datasets from the application environment
+16:31:14 | awr_get_broadband_contours.py                 | INFO     | Starting Data Extraction Sequence for Graph: it2_load_pull
+16:31:15 | awr_get_broadband_contours.py                 | INFO     |   ├── Extracting Measurement Traces:
+16:31:16 | awr_get_broadband_contours.py                 | INFO     |   └── Data Extraction Process Completed Successfully
+16:31:16 | lp_iteration_point_selector.py                | INFO     | ├── Converting contour datasets into geometric polygon structures
+16:31:16 | lp_iteration_point_selector.py                | INFO     | ├── Executing intersection search algorithm
+16:31:16 | lp_iteration_point_selector.py                | INFO     | ├── Optimal intersection identified with worst-case PAE threshold: 47.5
+16:31:16 | lp_iteration_point_selector.py                | INFO     | ├── Target centroid calculated at Magnitude=0.6847, Angle=-121.13°
+16:31:16 | lp_iteration_point_selector.py                | INFO     | ├── Generating 2D vector graphic rendering of the intersection dataset
+16:31:16 | dataexporter.py                               | INFO     | ├── Saving binary content to: outputs\RUN 26.02.25-16.29.39\graphs\State No 1\it2_load_pull_2D.svg
+16:31:16 | dataexporter.py                               | INFO     | └── Binary export sequence completed successfully for graphs\State No 1\it2_load_pull_2D.svg.
+16:31:16 | lp_iteration_point_selector.py                | INFO     | ├── Generating Advanced Interactive 3D Plotly rendering (Z-Axis = PAE)
+16:31:16 | dataexporter.py                               | INFO     | ├── Saving text-based content to: outputs\RUN 26.02.25-16.29.39\graphs\State No 1\it2_load_pull_3D.html
+16:31:16 | dataexporter.py                               | INFO     | └── Text export sequence completed successfully for graphs\State No 1\it2_load_pull_3D.html.
+16:31:16 | lp_sequence.py                                | INFO     | │   └── LP Result: Mag [0.685], Ang [-121.1]
+16:31:16 | awr_configure_schematic_element.py            | INFO     | Configuring Element: 'HBTUNER3.SourceTuner' in 'VDS40_Load_Pull'
+16:31:16 | awr_configure_schematic_element.py            | INFO     |   ├── Mag1: [0.8766064643819682] -> [0.8766064643819682]
+16:31:16 | awr_configure_schematic_element.py            | INFO     |   └── Ang1: [-61.866112938422496] -> [-61.866112938422496]
+16:31:16 | awr_configure_schematic_element.py            | INFO     | Configuring Element: 'HBTUNER3.LoadTuner' in 'VDS40_Load_Pull'
+16:31:16 | awr_configure_schematic_element.py            | INFO     |   ├── Mag1: [calcMag(50,0,z0)] -> [0.6846693743457068]
+16:31:16 | awr_configure_schematic_element.py            | INFO     |   └── Ang1: [calcAng(50,0,z0)] -> [-121.1290125435394]
+16:31:16 | awr_get_marker_value.py                       | INFO     | Retrieving Marker Data: 'm1' from 'Results'
+16:31:17 | awr_get_marker_value.py                       | INFO     |   └── Value: 12.85 GHz (38.81 dBm)
+16:31:17 | awr_get_marker_value.py                       | INFO     | Retrieving Marker Data: 'm2' from 'Results'
+16:31:17 | awr_get_marker_value.py                       | INFO     |   └── Value: 13.25 GHz (47.44)
+16:31:17 | awr_project_saveas.py                         | INFO     | ├── Initiating project save operation to target path: C:\Users\aliutkay\PycharmProjects\awr_automation\outputs\RUN 26.02.25-16.29.39\EMP Files\State No 1\simulation_state_1.emp
+16:31:17 | awr_project_saveas.py                         | INFO     | └── Successfully saved active project as: simulation_state_1.emp
+16:31:17 | main.py                                       | INFO     | └── STATE 1 COMPLETE
+16:31:17 | main.py                                       | INFO     | └── Simulation Sequence Completed in 42.09 seconds.
