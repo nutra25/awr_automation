@@ -76,7 +76,6 @@ class SimulationManager:
             exporter=self.exporter,
             config_params=lp_config
         )
-
         # Generate domain-specific headers and initialize the persistence layer
         initial_headers = self._generate_csv_headers()
         csv_subpath = os.path.join("csv results", "simulation_results.csv")
