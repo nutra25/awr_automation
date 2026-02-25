@@ -83,7 +83,7 @@ class SimulationManager:
 
     def _generate_csv_headers(self) -> List[str]:
         """
-        Generates the column headers for the results file..
+        Generates the column headers for the results file.
         """
         headers = ["State No"]
         headers.extend([var.name for var in STATE_VAR])
