@@ -11,7 +11,7 @@ Her modüle doğrudan yaptığı işi anlatan isimler vermek, kodun okunabilirli
 * **GraphManager yerine `GraphInspector` veya `GraphDataExtractor`:** * *Neden?* Bu sınıf grafikleri yönetmekten ziyade, grafiklerin içinden marker ve kontur verilerini okuyup çekme (extract) işlemi yapmaktadır.
 * **ProjectManager yerine `ProjectOperations` veya `ProjectController`:** * *Neden?* Projeyi kaydetme ve açma gibi temel G/Ç (I/O) operasyonlarını yürüttüğü için "Operations" çok uygun bir tanımdır.
 
-### 2. Standart ve Tek Tip İsimlendirme Yaklaşımları
+### 2. Standart ve Tek Tip İsimlendirme Yaklaşımlarıı
 
 Eğer AWR altındaki tüm alt modüllerin (`circuit`, `graph`, `project`, `wizard`) isminin standart bir ek ile bitmesini istiyorsanız, "Manager" yerine şu ekleri kullanabilirsiniz:
 
