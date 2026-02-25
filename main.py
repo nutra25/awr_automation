@@ -1,32 +1,25 @@
 """
 main.py
-Core entry point for the AWR Load-Pull Automation sequence.
-Orchestrates the simulation drivers, state managers, and data exporters.
-Employs a strict composition-based architecture for domain segregation.
+Core entry point for the AWR Automation sequence.
+Orchestrates the simulation drivers, state managers, and delegates specific
+engineering analyses (e.g., Load-Pull) to specialized sequence modules.
 """
 
 import itertools
 import time
-import os
 from typing import List, Tuple, Any, Dict, Protocol, Union
-from enum import Enum, auto
 
 # Custom Configuration and Objects
 from config import *
-import objects
 
 # Logger and Exporter
 from logger.logger import LOGGER
 from dataexporter.dataexporter import DataExporter
 
-# Drivers
+# Drivers and Handlers
 from awr.awr_driver import AWRDriver
-
-
-class PullType(Enum):
-    """Enumeration defining the active impedance pull direction."""
-    LOADPULL = auto()
-    SOURCEPULL = auto()
+from rfdesign.loadpull.handlers import StateHandler
+from rfdesign.loadpull.sequence import LoadPullSequence
 
 
 class ICircuitManager(Protocol):
@@ -36,7 +29,6 @@ class ICircuitManager(Protocol):
 
 class IGraphManager(Protocol):
     def get_marker_data(self, graph: str, marker: str, toggle_enable: bool = False) -> List[float]: ...
-    def get_broadband_contours(self, graph_name: str) -> Dict[float, List[Dict[str, Any]]]: ...
 
 
 class IWizardManager(Protocol):
@@ -49,10 +41,6 @@ class IProjectManager(Protocol):
 
 
 class ISimulatorDriver(Protocol):
-    """
-    Main driver protocol explicitly defining the composition of sub-managers.
-    Ensures that domain-specific operations are delegated accurately.
-    """
     project: IProjectManager
     circuit: ICircuitManager
     graph: IGraphManager
@@ -61,8 +49,8 @@ class ISimulatorDriver(Protocol):
 
 class SimulationManager:
     """
-    Core logic controller for the multi-iteration load-pull simulation.
-    Handles state management, optimization loops, and delegates data persistence.
+    Core logic controller that handles global state management, optimization loops,
+    and delegates specialized simulations to strategy modules.
     """
 
     def __init__(self, driver: ISimulatorDriver):
@@ -71,21 +59,33 @@ class SimulationManager:
         # Initialize the decoupled DataExporter targeting the dynamic run directory
         self.exporter = DataExporter(base_directory=RUN_DIR)
 
+        # Initialize the state handler via dependency injection
+        self.state_handler = StateHandler(
+            circuit_manager=self.driver.circuit,
+            schematic_name=SCHEMATIC_NAME
+        )
+
+        # Instantiate the explicit simulation sequence, injecting all required configurations
+        self.sequence = LoadPullSequence(
+            driver=self.driver,
+            exporter=self.exporter,
+            schematic_name=SCHEMATIC_NAME,
+            tuner_settings=TUNER_SETTINGS,
+            measurement_config=MEASUREMENT_CONFIG,
+            graph_name_pattern=GRAPH_NAME_PATTERN,
+            point_selector=POINT_SELECTOR,
+            iteration_count=ITERATION_COUNT,
+            radius_list=RADIUS_LIST
+        )
+
         # Generate domain-specific headers and initialize the persistence layer
         initial_headers = self._generate_csv_headers()
-
-        # Provide the relative path for the CSV file initialization
         csv_subpath = os.path.join("csv results", "simulation_results.csv")
         self.exporter.initialize_csv(csv_subpath, initial_headers)
 
-        self._state_handlers = {
-            objects.StateType.ELEMENT: self._handle_element_state,
-            objects.StateType.RF_FREQUENCY: self._handle_frequency_state,
-        }
-
     def _generate_csv_headers(self) -> List[str]:
         """
-        Generates the domain-specific column headers for the results file.
+        Generates the column headers for the results file.
         """
         headers = ["State No"]
         headers.extend([var.name for var in STATE_VAR])
@@ -98,116 +98,9 @@ class SimulationManager:
                 headers.extend([f"{prefix}_Point", f"{prefix}_Mag", f"{prefix}_Ang"])
         return headers
 
-    def _handle_element_state(self, config_obj, value):
-        """Updates schematic elements using the Circuit domain manager."""
-        for elem in config_obj.element:
-            self.driver.circuit.configure_element(SCHEMATIC_NAME, elem.name, {elem.arg: str(value)})
-
-    def _handle_frequency_state(self, config_obj, value):
-        """Updates the system frequency using the Circuit domain manager."""
-        if isinstance(value, (list, tuple)):
-            freq_val = [float(v) for v in value]
-        else:
-            freq_val = float(value)
-        self.driver.circuit.set_frequency(SCHEMATIC_NAME, freq_val)
-
-    def _apply_configuration(self, config_obj, value):
-        """Dispatches the configuration to the appropriate handler."""
-        handler = self._state_handlers.get(config_obj.type)
-        if handler:
-            handler(config_obj, value)
-        else:
-            LOGGER.error(f"├── Unsupported StateType encountered: {config_obj.type}")
-
-    def _build_tuner_params(self, side: str, mag: Any, ang: Any, harmonic: int = 1) -> dict:
-        """Helper to format tuner parameters for AWR."""
-        cfg = TUNER_SETTINGS[side]
-        return {
-            f"{cfg['prefix_mag']}{harmonic}": str(mag),
-            f"{cfg['prefix_ang']}{harmonic}": str(ang)
-        }
-
-    def _run_iteration(self, iter_idx: int, pull_type: PullType,
-                       radius: float, sweep_center: Tuple[float, float],
-                       fixed_pos: Tuple[float, float], export_subpath: str) -> objects.PullResult:
-        """
-        Executes a single Source or Load pull iteration step.
-        Configures the tuners, runs the wizard, and delegates graphic export via the point selector.
-        """
-        is_source = (pull_type == PullType.SOURCEPULL)
-        h_idx = 1
-        active_side = "SOURCE" if is_source else "LOAD"
-        fixed_side = "LOAD" if is_source else "SOURCE"
-
-        active_params = self._build_tuner_params(active_side, "calcMag(50,0,z0)", "calcAng(50,0,z0)", h_idx)
-
-        if isinstance(fixed_pos, (list, tuple)) and len(fixed_pos) >= 2:
-            fixed_params = self._build_tuner_params(fixed_side, fixed_pos[0], fixed_pos[1], h_idx)
-            center_ang = sweep_center[1] if isinstance(sweep_center, (list, tuple)) and len(sweep_center) >= 2 else sweep_center
-        else:
-            fixed_params = self._build_tuner_params(fixed_side, fixed_pos, fixed_pos, h_idx)
-            center_ang = sweep_center
-
-        self.driver.circuit.configure_element(SCHEMATIC_NAME, TUNER_SETTINGS["SOURCE"]["name"], active_params if is_source else fixed_params)
-        self.driver.circuit.configure_element(SCHEMATIC_NAME, TUNER_SETTINGS["LOAD"]["name"], fixed_params if is_source else active_params)
-
-        wizard_opts = {
-            "LP_MaxHarmonic": h_idx,
-            "LP_DataFileName": f"{active_side.lower()}_data_{iter_idx}",
-            "LP_OverwriteDataFile": True,
-            f"LP_Sweep_{active_side.capitalize()}{h_idx}": True,
-            f"LP_Sweep_{fixed_side.capitalize()}{h_idx}": False,
-            f"LP_{active_side.capitalize()}{h_idx}_Density": "Extra fine",
-            f"LP_{active_side.capitalize()}{h_idx}_Radius": radius,
-            f"LP_{active_side.capitalize()}{h_idx}_CenterMagnitude": sweep_center[0] if isinstance(sweep_center, (list, tuple)) else sweep_center,
-            f"LP_{active_side.capitalize()}{h_idx}_CenterAngle": center_ang
-        }
-
-        self.driver.wizard.run_wizard(wizard_opts)
-
-        graph_name = GRAPH_NAME_PATTERN.format(iter=iter_idx, type=active_side.lower())
-
-        point, mag, ang = POINT_SELECTOR.select_point(
-            self.driver,
-            graph_name,
-            exporter=self.exporter,
-            export_subpath=export_subpath
-        )
-
-        return objects.PullResult(
-            iter_no=iter_idx,
-            mode="SP" if is_source else "LP",
-            point=point,
-            mag=float(mag),
-            ang=float(ang)
-        )
-
-    def _finalize_state(self, results: List[objects.PullResult]) -> Tuple[Dict, Tuple]:
-        """
-        Identifies the global maximum results, sets the tuners, and captures final measurements.
-        """
-        best_lp = max((x for x in results if x.mode == "LP"), key=lambda x: float(x.point))
-        best_sp = next(res for res in results if res.iter_no == best_lp.iter_no and res.mode == "SP")
-
-        self.driver.circuit.configure_element(SCHEMATIC_NAME, TUNER_SETTINGS["SOURCE"]["name"],
-                                              self._build_tuner_params("SOURCE", best_sp.mag, best_sp.ang))
-        self.driver.circuit.configure_element(SCHEMATIC_NAME, TUNER_SETTINGS["LOAD"]["name"],
-                                              self._build_tuner_params("LOAD", best_lp.mag, best_lp.ang))
-
-        measured_data = {}
-        for m in MEASUREMENT_CONFIG:
-            data = self.driver.graph.get_marker_data(m["graph"], m["marker"], toggle_enable=True)
-            val = str(data[m["index"]]) if len(data) > m["index"] else "NaN"
-            measured_data[m["header"]] = val
-
-        tuner_data = (str(best_sp.mag), str(best_sp.ang),
-                      str(best_lp.mag), str(best_lp.ang))
-
-        return measured_data, tuner_data
-
     def run_state(self, state_values: Tuple, state_idx: int = 1, total_states: int = 1):
         """
-        Executes the optimization loop for a single combination of state variables.
+        Executes the overarching logic for a single combination of state variables.
         """
         LOGGER.info(f"├── PROCESSING STATE {state_idx}/{total_states}: {state_values}")
 
@@ -225,39 +118,14 @@ class SimulationManager:
 
         export_subpath = os.path.join("graphs", state_dir_name)
 
+        # Apply State Variables
         for idx, val in enumerate(state_values):
-            self._apply_configuration(STATE_VAR[idx], val)
+            self.state_handler.apply_configuration(STATE_VAR[idx], val)
 
-        current_results = []
-        pos = {PullType.SOURCEPULL: (0.0, 0.0), PullType.LOADPULL: (0.0, 0.0)}
+        # Delegate the actual simulation iterations to the injected sequence strategy
+        measured_data, current_results, tuner_data = self.sequence.execute(export_subpath)
 
-        for i in range(ITERATION_COUNT):
-            radius = float(RADIUS_LIST[i])
-            iter_num = i + 1
-
-            LOGGER.info(f"│   ├── Iteration {iter_num}/{ITERATION_COUNT} (Radius: {radius})")
-
-            sp_res = self._run_iteration(
-                iter_num, PullType.SOURCEPULL, radius,
-                pos[PullType.SOURCEPULL], pos[PullType.LOADPULL],
-                export_subpath
-            )
-            current_results.append(sp_res)
-            pos[PullType.SOURCEPULL] = (float(sp_res.mag), float(sp_res.ang))
-            LOGGER.info(f"│   ├── SP Result: Mag [{sp_res.mag:.3f}], Ang [{sp_res.ang:.1f}]")
-
-            lp_res = self._run_iteration(
-                iter_num, PullType.LOADPULL, radius,
-                pos[PullType.LOADPULL], pos[PullType.SOURCEPULL],
-                export_subpath
-            )
-            current_results.append(lp_res)
-            pos[PullType.LOADPULL] = (float(lp_res.mag), float(lp_res.ang))
-            LOGGER.info(f"│   └── LP Result: Mag [{lp_res.mag:.3f}], Ang [{lp_res.ang:.1f}]")
-
-        LOGGER.debug("├── Finalizing state configuration and preparing data export...")
-        measured_data, tuner_data = self._finalize_state(current_results)
-
+        # Compile and persist the row data
         measured_row = [measured_data[m["header"]] for m in MEASUREMENT_CONFIG]
         row_data = [state_idx] + list(state_values) + measured_row + list(tuner_data)
 
@@ -287,7 +155,7 @@ class SimulationManager:
             else:
                 actual_val = val
 
-            self._apply_configuration(constant, actual_val)
+            self.state_handler.apply_configuration(constant, actual_val)
 
         combinations = list(itertools.product(*[v.value for v in STATE_VAR]))
         total_combos = len(combinations)
