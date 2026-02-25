@@ -98,7 +98,7 @@ class SimulationManager:
 
     def run_state(self, state_values: Tuple, state_idx: int = 1, total_states: int = 1):
         """
-        Executes the overarching logic for a single combination of state variables.
+        Executes the overarching logic for a single combination of state variables..
         """
         LOGGER.info(f"├── PROCESSING STATE {state_idx}/{total_states}: {state_values}")
 
