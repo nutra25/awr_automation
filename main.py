@@ -2,7 +2,7 @@
 main.py
 Core entry point for the AWR Load-Pull Automation sequence.
 Orchestrates the simulation drivers, state managers, and data exporters.
-Employs a composition-based driver architecture for domain segregation.
+Employs a strict composition-based architecture for domain segregation.
 """
 
 import itertools
@@ -36,6 +36,7 @@ class ICircuitManager(Protocol):
 
 class IGraphManager(Protocol):
     def get_marker_data(self, graph: str, marker: str, toggle_enable: bool = False) -> List[float]: ...
+    def get_broadband_contours(self, graph_name: str) -> Dict[float, List[Dict[str, Any]]]: ...
 
 
 class IWizardManager(Protocol):
@@ -50,7 +51,7 @@ class IProjectManager(Protocol):
 class ISimulatorDriver(Protocol):
     """
     Main driver protocol explicitly defining the composition of sub-managers.
-    Ensures that domain-specific operations are delegated appropriately.
+    Ensures that domain-specific operations are delegated accurately.
     """
     project: IProjectManager
     circuit: ICircuitManager
@@ -98,12 +99,12 @@ class SimulationManager:
         return headers
 
     def _handle_element_state(self, config_obj, value):
-        """Updates schematic elements based on the state variable by injecting context."""
+        """Updates schematic elements using the Circuit domain manager."""
         for elem in config_obj.element:
             self.driver.circuit.configure_element(SCHEMATIC_NAME, elem.name, {elem.arg: str(value)})
 
     def _handle_frequency_state(self, config_obj, value):
-        """Updates the system frequency based on the state variable by injecting context."""
+        """Updates the system frequency using the Circuit domain manager."""
         if isinstance(value, (list, tuple)):
             freq_val = [float(v) for v in value]
         else:

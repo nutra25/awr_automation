@@ -2,6 +2,7 @@
 lp_iteration_point_selector.py
 Defines strategies for selecting the optimal point from load-pull contours.
 Delegates all persistent storage operations strictly to the central DataExporter.
+Employs the composition-based driver architecture for data retrieval.
 """
 
 import os
@@ -24,21 +25,10 @@ from logger.logger import LOGGER
 class BasePointSelector(ABC):
     """
     Abstract base class defining the required interface for point selection strategies.
-    The simulation manager operates exclusively through this contract.
     """
 
     @abstractmethod
     def select_point(self, driver: Any, graph_name: str, exporter: Any = None, export_subpath: str = "") -> Tuple[str, str, str]:
-        """
-        Executes the selection logic and returns the designated point parameters.
-        Returns a tuple of strings formatted as (Value, Magnitude, Angle).
-
-        Args:
-            driver: The simulator driver instance.
-            graph_name: The name of the graph to analyze.
-            exporter: The central DataExporter instance for saving generated artifacts.
-            export_subpath: The specific directory path relative to the exporter's base directory.
-        """
         pass
 
 
@@ -53,7 +43,8 @@ class MaxMarkerSelector(BasePointSelector):
     def select_point(self, driver: Any, graph_name: str, exporter: Any = None, export_subpath: str = "") -> Tuple[str, str, str]:
         LOGGER.info(f"Initiating MaxMarkerSelector for graph: {graph_name}")
 
-        data = driver.get_marker_data(graph_name, self.marker_name)
+        # Delegated graph operations to the graph manager
+        data = driver.graph.get_marker_data(graph_name, self.marker_name)
 
         if not data:
             LOGGER.warning("└── Failed to retrieve valid marker data. Returning default fallback values.")
@@ -76,8 +67,9 @@ class TradeOffSelector(BasePointSelector):
     def select_point(self, driver: Any, graph_name: str, exporter: Any = None, export_subpath: str = "") -> Tuple[str, str, str]:
         LOGGER.info(f"Initiating TradeOffSelector between markers '{self.m1}' and '{self.m2}'")
 
-        d1 = driver.get_marker_data(graph_name, self.m1)
-        d2 = driver.get_marker_data(graph_name, self.m2)
+        # Delegated graph operations to the graph manager
+        d1 = driver.graph.get_marker_data(graph_name, self.m1)
+        d2 = driver.graph.get_marker_data(graph_name, self.m2)
 
         if not d1 or not d2:
             LOGGER.warning("└── Incomplete marker data retrieved. Returning default fallback values.")
@@ -97,7 +89,6 @@ class TradeOffSelector(BasePointSelector):
 class BroadbandOptimumSelector(BasePointSelector):
     """
     Advanced selection strategy to identify a generalized intersection area across multiple frequencies.
-    Employs a limiter-biased heuristic algorithm to calculate the optimal centroid balancing performance.
     """
 
     def __init__(self, show_plot: bool = True):
@@ -152,7 +143,9 @@ class BroadbandOptimumSelector(BasePointSelector):
 
     def _fetch_and_process_contours(self, driver: Any, graph_name: str) -> Tuple[Dict, List[float], int]:
         LOGGER.info("├── Retrieving broadband contour datasets from the application environment")
-        data_by_freq = driver.get_broadband_contours(graph_name)
+
+        # Delegated graph operations to the graph manager
+        data_by_freq = driver.graph.get_broadband_contours(graph_name)
 
         if not data_by_freq:
             LOGGER.error("└── Aborting: Unreadable or empty contour data retrieved.")
@@ -193,6 +186,8 @@ class BroadbandOptimumSelector(BasePointSelector):
         valid_freqs = [f for f in freqs if f in freq_geoms]
         return freq_geoms, valid_freqs, len(valid_freqs)
 
+    # ( _find_best_intersection, _generate_plot ve _generate_plot_3d_plotly metodlarının içerikleri aynı kalır,
+    #   yalnızca mimari çağrılar güncellenmiştir. )
     def _find_best_intersection(self, freq_geoms: Dict, freqs: List[float], num_freqs: int) -> Tuple[Any, Optional[List[int]], float]:
         state = [0] * num_freqs
         best_state = None
@@ -284,9 +279,6 @@ class BroadbandOptimumSelector(BasePointSelector):
     def _generate_plot(self, graph_name: str, freqs: List[float], num_freqs: int, freq_geoms: Dict,
                        best_state: List[int], geoms_to_plot: List[Any], cx: float, cy: float,
                        exporter: Any, export_subpath: str):
-        """
-        Generates the 2D SVG plot in memory and delegates the saving process to the DataExporter.
-        """
         LOGGER.info("├── Generating 2D vector graphic rendering of the intersection dataset")
 
         plt.figure(figsize=(14, 12), dpi=120)
@@ -327,7 +319,6 @@ class BroadbandOptimumSelector(BasePointSelector):
         plt.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), fontsize=10)
         plt.tight_layout()
 
-        # Isolate file operations: Generate bytes in memory and send to exporter
         try:
             buf = io.BytesIO()
             plt.savefig(buf, bbox_inches='tight', format='svg')
@@ -342,9 +333,6 @@ class BroadbandOptimumSelector(BasePointSelector):
     def _generate_plot_3d_plotly(self, graph_name: str, freqs: List[float], num_freqs: int, freq_geoms: Dict,
                                  best_state: List[int], geoms_to_plot: List[Any], cx: float, cy: float,
                                  exporter: Any, export_subpath: str):
-        """
-        Generates the 3D HTML plot in memory and delegates the saving process to the DataExporter.
-        """
         LOGGER.info("├── Generating Advanced Interactive 3D Plotly rendering (Z-Axis = PAE)")
 
         fig = go.Figure()
@@ -555,7 +543,6 @@ class BroadbandOptimumSelector(BasePointSelector):
         fig.add_annotation(text="Frequency Filter:", x=0.01, y=1.12, xref="paper", yref="paper", showarrow=False, font=dict(size=14, color="black"), align="left")
         fig.add_annotation(text="PAE Filter:", x=0.25, y=1.12, xref="paper", yref="paper", showarrow=False, font=dict(size=14, color="black"), align="left")
 
-        # Isolate file operations: Generate HTML string in memory and send to exporter
         try:
             html_content = fig.to_html(include_plotlyjs='cdn', full_html=True)
             filename = os.path.join(export_subpath, f"{graph_name}_3D.html")
