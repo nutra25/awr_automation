@@ -43,13 +43,13 @@ class AWRDriver:
         Robust connection logic featuring auto-launch capabilities and a controlled timeout loop.
         """
         LOGGER.info("├── Initializing AWR Microwave Office Application...")
-
+        """
         try:
             app = mwoffice.CMWOffice()
             LOGGER.info("└── Successfully connected to active session.")
             return app
         except Exception:
-            LOGGER.debug("├── No active session found.")
+            LOGGER.debug("├── No active session found.")"""
 
         if exe_path:
             if os.path.exists(exe_path):

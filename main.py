@@ -7,6 +7,7 @@ engineering analyses (e.g., Load-Pull) to specialized sequence modules.
 
 import itertools
 import time
+import os
 from typing import List, Tuple, Any, Dict, Protocol, Union
 
 # Custom Configuration and Objects
@@ -18,8 +19,7 @@ from dataexporter.dataexporter import DataExporter
 
 # Drivers and Handlers
 from awr.awr_driver import AWRDriver
-from rfdesign.loadpull.handlers import StateHandler
-from rfdesign.loadpull.sequence import LoadPullSequence
+from rfdesign.loadpull.manager import LoadPullManager
 
 
 class ICircuitManager(Protocol):
@@ -59,23 +59,22 @@ class SimulationManager:
         # Initialize the decoupled DataExporter targeting the dynamic run directory
         self.exporter = DataExporter(base_directory=RUN_DIR)
 
-        # Initialize the state handler via dependency injection
-        self.state_handler = StateHandler(
-            circuit_manager=self.driver.circuit,
-            schematic_name=SCHEMATIC_NAME
-        )
+        # Encapsulate Load-Pull configuration parameters
+        lp_config = {
+            "schematic_name": SCHEMATIC_NAME,
+            "tuner_settings": TUNER_SETTINGS,
+            "measurement_config": MEASUREMENT_CONFIG,
+            "graph_name_pattern": GRAPH_NAME_PATTERN,
+            "point_selector": POINT_SELECTOR,
+            "iteration_count": ITERATION_COUNT,
+            "radius_list": RADIUS_LIST
+        }
 
-        # Instantiate the explicit simulation sequence, injecting all required configurations
-        self.sequence = LoadPullSequence(
+        # Initialize the Load-Pull Manager via dependency injection
+        self.loadpull_manager = LoadPullManager(
             driver=self.driver,
             exporter=self.exporter,
-            schematic_name=SCHEMATIC_NAME,
-            tuner_settings=TUNER_SETTINGS,
-            measurement_config=MEASUREMENT_CONFIG,
-            graph_name_pattern=GRAPH_NAME_PATTERN,
-            point_selector=POINT_SELECTOR,
-            iteration_count=ITERATION_COUNT,
-            radius_list=RADIUS_LIST
+            config_params=lp_config
         )
 
         # Generate domain-specific headers and initialize the persistence layer
@@ -118,12 +117,12 @@ class SimulationManager:
 
         export_subpath = os.path.join("graphs", state_dir_name)
 
-        # Apply State Variables
+        # Apply State Variables via LoadPull Manager
         for idx, val in enumerate(state_values):
-            self.state_handler.apply_configuration(STATE_VAR[idx], val)
+            self.loadpull_manager.apply_state(STATE_VAR[idx], val)
 
-        # Delegate the actual simulation iterations to the injected sequence strategy
-        measured_data, current_results, tuner_data = self.sequence.execute(export_subpath)
+        # Delegate the actual simulation iterations to the LoadPull Manager
+        measured_data, current_results, tuner_data = self.loadpull_manager.execute_sequence(export_subpath)
 
         # Compile and persist the row data
         measured_row = [measured_data[m["header"]] for m in MEASUREMENT_CONFIG]
@@ -155,7 +154,7 @@ class SimulationManager:
             else:
                 actual_val = val
 
-            self.state_handler.apply_configuration(constant, actual_val)
+            self.loadpull_manager.apply_state(constant, actual_val)
 
         combinations = list(itertools.product(*[v.value for v in STATE_VAR]))
         total_combos = len(combinations)
