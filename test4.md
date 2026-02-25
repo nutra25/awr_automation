@@ -1,87 +1,27 @@
-Harika bir öngörü. İleride sisteme "Load and Match" veya tamamen farklı simülasyon tipleri eklemeyi planlıyorsanız, şu anki `SimulationManager`'ın Load-Pull mantığına sıkı sıkıya bağlı (tightly coupled) olması ciddi bir mimari engeldir.
+Yönelttiğiniz bu soru, yazılım mühendisliği prensipleri açısından son derece isabetli ve mimari olgunluğu gösteren bir sorgulamadır. Objektif bir eleştiri yapmak gerekirse; yazılım dünyasında "Manager" (Yönetici) kelimesi genellikle bir **"Anti-Pattern" (Kötü Tasarım Kalıbı)** olarak kabul edilir. Çünkü "yönetmek" kelimesi çok belirsiz bir eylemdir; sınıfın tam olarak ne iş yaptığını, sınırlarının nerede başlayıp nerede bittiğini açıklamaz ve zamanla sınıfın her türlü kodun yığıldığı bir "Çöplük Sınıf" (God Object) haline gelmesine zemin hazırlar.
 
-Bu sorunu çözmek için yazılım mühendisliğinde sıkça başvurulan **Strategy Pattern** (Strateji Tasarım Deseni) veya modüler **Delegation** (Yetki Devri) yaklaşımını kullanmalıyız.
+Projenizdeki modüllerin üstlendiği spesifik görevlere göre, "Manager" yerine kullanabileceğiniz çok daha profesyonel ve teknik isimlendirme alternatifleri şunlardır:
 
-Bu yapıda `SimulationManager` sadece bir **Orkestratör** (yönetici) görevini üstlenmeli; durum (state) matrisini oluşturmalı, döngüleri döndürmeli ve dosya kayıtlarını yönetmelidir. İçeride dönen mühendislik hesabının (Load-Pull mu yoksa Load and Match mi olduğu) ne olduğunu bilmemelidir.
+### 1. Sınıfın Amacına Göre Özelleştirilmiş İsimler (En Profesyonel Yaklaşım)
 
-Aşağıda bu ayrımın nasıl yapılacağına dair hiyerarşik yapı ve akış şemasını sunuyorum:
+Her modüle doğrudan yaptığı işi anlatan isimler vermek, kodun okunabilirliğini en üst seviyeye çıkarır:
 
-### 1. Yeni Dosya ve Klasör Ağacı Görselleştirmesi
+* **LoadPullManager yerine `LoadPullOrchestrator` veya `LoadPullFacade`:** * *Neden?* Bu modül devre, grafik, sihirbaz ve veri dışa aktarımı gibi birçok farklı alt sistemi bir araya getirip bir senaryo (sequence) yürütüyor. Bu işleme mimaride "Orkestrasyon" denir. Karmaşık alt sistemleri tek bir basit arayüzde topladığı için "Facade" (Önyüz) de mükemmel bir terimdir.
+* **WizardManager yerine `WizardExecutor` veya `WizardRunner`:** * *Neden?* Sihirbaz modülünün tek bir görevi var: Verilen parametrelerle sihirbazı çalıştırmak (execute).
+* **GraphManager yerine `GraphInspector` veya `GraphDataExtractor`:** * *Neden?* Bu sınıf grafikleri yönetmekten ziyade, grafiklerin içinden marker ve kontur verilerini okuyup çekme (extract) işlemi yapmaktadır.
+* **ProjectManager yerine `ProjectOperations` veya `ProjectController`:** * *Neden?* Projeyi kaydetme ve açma gibi temel G/Ç (I/O) operasyonlarını yürüttüğü için "Operations" çok uygun bir tanımdır.
 
-Load-Pull spesifik tüm iterasyon ve tuner hesaplamalarını `loadpull` klasörü altında yeni bir yönetici (sequence) dosyasına taşımalıyız.
+### 2. Standart ve Tek Tip İsimlendirme Yaklaşımları
 
-```text
-awr_automation/
-│
-├── main.py                     -> (Sadece Orkestrasyon: State döngüsü, loglama ve DataExporter)
-│
-├── loadpull/                   -> (Load-Pull Domain Klasörü)
-│   ├── handlers.py             -> (Önceki adımda ayırdığımız StateHandler)
-│   ├── sequence.py             -> [YENİ] LoadPullSequence Sınıfı (_run_iteration, _finalize_state vb.)
-│   ├── tuner_utils.py          -> [YENİ] _build_tuner_params ve PullType Enum'ı
-│   ├── lp_state_result_selector.py
-│   └── lp_iteration_point_selector.py
-│
-└── ...
+Eğer AWR altındaki tüm alt modüllerin (`circuit`, `graph`, `project`, `wizard`) isminin standart bir ek ile bitmesini istiyorsanız, "Manager" yerine şu ekleri kullanabilirsiniz:
 
-```
+* **Controller (Kontrolcü):** `CircuitController`, `ProjectController`, `GraphController`. Gelen talepleri alıp ilgili API metoduna yönlendiren yapılar için endüstri standardıdır.
+* **Operations / Ops (Operasyonlar):** `CircuitOperations`, `GraphOperations`. Alt seviye API çağrılarını gruplayan ve çalıştıran sınıflar için oldukça ciddi bir kullanımdır.
+* **Service (Servis):** `CircuitService`, `GraphService`. Belirli bir iş mantığı alanında hizmet sunan sınıflar için kullanılır (genellikle veritabanı veya dış API bağlantılarında tercih edilir).
+* **Adapter (Adaptör):** `CircuitAdapter`, `GraphAdapter`. Yazdığımız bu kodlar aslında AWR'nin COM API'si ile bizim kendi yazılımımız arasında bir köprü (adaptör) görevi gördüğü için yapısal tasarım desenlerine (structural design patterns) tam uyar.
 
----
+### Önerilen Mimarî Karar
 
-### 2. Sorumlulukların Bölünmesi (Separation of Concerns)
+Benim mimari tavsiyem, genel AWR sürücüsü altındaki dosyalar için **`Operations`** veya **`Controller`** kavramını; Load-Pull gibi karmaşık iş akışlarını yürüten sınıflar için ise **`Orchestrator`** veya **`Facade`** kavramını kullanmanızdır.
 
-Kod yazmadan, mantıksal olarak hangi metodun nereye gideceğini şu şekilde özetleyebiliriz:
-
-**A. `main.py` (SimulationManager Sınıfı)**
-Görevleri sadece şunlar olmalıdır:
-
-* State konfigürasyonlarını (VDS, VGS, Frekans vb.) okuyup matris oluşturmak.
-* State başına yeni bir klasör (Graphs, EMP) yaratmak.
-* `StateHandler` aracılığıyla state değişkenlerini devreye uygulamak.
-* **[Kritik Nokta]:** İlgili analiz stratejisini (örneğin `LoadPullSequence`) çağırıp, "Bu state için işini yap ve bana sonuçları ver" demek.
-* Gelen sonuçları CSV'ye yazmak ve projeyi kaydetmek.
-
-**B. `loadpull/sequence.py` (LoadPullSequence Sınıfı)**
-Şu an `main.py` içindeki yükü buraya alacağız. Görevleri:
-
-* `_run_iteration` mantığını yürütmek (Source Pull ve Load Pull döngüleri).
-* AWR Wizard opsiyonlarını (LP_MaxHarmonic, CenterMagnitude vb.) belirleyip çalıştırmak.
-* Grafiklerden nokta seçimi için `POINT_SELECTOR`'ı tetiklemek.
-* `_finalize_state` ile global maksimum noktalarını bulup devredeki Tuner'ları (Source ve Load) son hallerine getirmek ve ölçümleri alıp ana yöneticiye döndürmek.
-
-**C. `loadpull/tuner_utils.py` (Yardımcı Araçlar)**
-
-* `PullType` Enum yapısı ve `_build_tuner_params` metodu gibi sadece Load-Pull tuner formülleri üreten küçük yardımcı fonksiyonlar burada durmalıdır.
-
----
-
-### 3. Mimari Akış Şeması (UML Akışı)
-
-Sistem çalıştığında hiyerarşik akış tam olarak şu şekilde ilerleyecektir:
-
-```text
-[main.py] SimulationManager
-   │
-   ├── 1. State Kombinasyonunu Hazırla (VDS=40, Freq=13.0)
-   ├── 2. Klasörleri Oluştur (State No 1)
-   ├── 3. StateHandler'a Uygulat (VDS ayarlandı)
-   │
-   ├── 4. Stratejiyi Çalıştır ---> [loadpull/sequence.py] LoadPullSequence
-   │                                 │
-   │                                 ├── Iteration 1: Source Pull (Wizard -> Point Select)
-   │                                 ├── Iteration 1: Load Pull (Wizard -> Point Select)
-   │                                 ├── Iteration 2: Source Pull ...
-   │                                 │
-   │                                 └── Finalize State: Tuner'ları ayarla ve veriyi oku.
-   │
-   ├── 5. Sonuçları Geri Al <--------- (Ölçüm verileri döndü)
-   ├── 6. DataExporter ile CSV'ye yaz.
-   └── 7. EMP dosyasını kaydet.
-
-```
-
-### Sonraki Adım
-
-Bu yapı sayesinde, ileride `LoadAndMatchSequence` adında yeni bir sınıf yazıp `main.py` içerisine sadece bir parametre olarak verebilirsiniz; ana iskeletiniz (döngüler, kayıtlar) hiç değişmemiş olur.
-
-Bu mantıksal bölme planı kafanıza yattı mı? Onaylıyorsanız, bir sonraki aşamada bu iskelete uygun sınıfları yavaş yavaş oluşturmaya başlayabiliriz.
+Bu alternatiflerden hangisi projenizin vizyonuna daha uygun görünüyor? Seçiminize göre tüm klasör ve sınıf isimlendirmelerini bu yeni profesyonel standarta göre güncelleyebilirim.
