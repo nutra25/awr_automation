@@ -2,6 +2,7 @@
 main.py
 Core entry point for the AWR Load-Pull Automation sequence.
 Orchestrates the simulation drivers, state managers, and data exporters.
+Employs a composition-based driver architecture for domain segregation.
 """
 
 import itertools
@@ -28,28 +29,33 @@ class PullType(Enum):
     SOURCEPULL = auto()
 
 
+class ICircuitManager(Protocol):
+    def configure_element(self, schematic_name: str, element_name: str, params: Dict[str, Any]) -> None: ...
+    def set_frequency(self, schematic_name: str, freq: Union[float, List[float]]) -> None: ...
+
+
+class IGraphManager(Protocol):
+    def get_marker_data(self, graph: str, marker: str, toggle_enable: bool = False) -> List[float]: ...
+
+
+class IWizardManager(Protocol):
+    def run_wizard(self, options: Dict[str, Any]) -> None: ...
+
+
+class IProjectManager(Protocol):
+    def save_current_project_as(self, save_path: str) -> None: ...
+    def open_existing_project(self, project_path: str) -> bool: ...
+
+
 class ISimulatorDriver(Protocol):
     """
-    A protocol defining the necessary interface for simulation drivers.
-    Any implementing driver class must adhere to these structural rules.
+    Main driver protocol explicitly defining the composition of sub-managers.
+    Ensures that domain-specific operations are delegated appropriately.
     """
-    def configure_element(self, element_name: str, params: Dict[str, Any]) -> None:
-        ...
-
-    def set_frequency(self, freq: Union[float, List[float]]) -> None:
-        ...
-
-    def get_marker_data(self, graph: str, marker: str, toggle_enable: bool = False) -> List[float]:
-        ...
-
-    def run_wizard(self, options: Dict[str, Any]) -> None:
-        ...
-
-    def save_current_project_as(self, save_path: str) -> None:
-        ...
-
-    def open_existing_project(self, project_path: str) -> bool:
-        ...
+    project: IProjectManager
+    circuit: ICircuitManager
+    graph: IGraphManager
+    wizard: IWizardManager
 
 
 class SimulationManager:
@@ -79,7 +85,6 @@ class SimulationManager:
     def _generate_csv_headers(self) -> List[str]:
         """
         Generates the domain-specific column headers for the results file.
-        This logic is maintained here as it is strictly tied to the AWR domain.
         """
         headers = ["State No"]
         headers.extend([var.name for var in STATE_VAR])
@@ -93,17 +98,17 @@ class SimulationManager:
         return headers
 
     def _handle_element_state(self, config_obj, value):
-        """Updates schematic elements based on the state variable."""
+        """Updates schematic elements based on the state variable by injecting context."""
         for elem in config_obj.element:
-            self.driver.configure_element(elem.name, {elem.arg: str(value)})
+            self.driver.circuit.configure_element(SCHEMATIC_NAME, elem.name, {elem.arg: str(value)})
 
     def _handle_frequency_state(self, config_obj, value):
-        """Updates the system frequency based on the state variable."""
+        """Updates the system frequency based on the state variable by injecting context."""
         if isinstance(value, (list, tuple)):
             freq_val = [float(v) for v in value]
         else:
             freq_val = float(value)
-        self.driver.set_frequency(freq_val)
+        self.driver.circuit.set_frequency(SCHEMATIC_NAME, freq_val)
 
     def _apply_configuration(self, config_obj, value):
         """Dispatches the configuration to the appropriate handler."""
@@ -142,8 +147,8 @@ class SimulationManager:
             fixed_params = self._build_tuner_params(fixed_side, fixed_pos, fixed_pos, h_idx)
             center_ang = sweep_center
 
-        self.driver.configure_element(TUNER_SETTINGS["SOURCE"]["name"], active_params if is_source else fixed_params)
-        self.driver.configure_element(TUNER_SETTINGS["LOAD"]["name"], fixed_params if is_source else active_params)
+        self.driver.circuit.configure_element(SCHEMATIC_NAME, TUNER_SETTINGS["SOURCE"]["name"], active_params if is_source else fixed_params)
+        self.driver.circuit.configure_element(SCHEMATIC_NAME, TUNER_SETTINGS["LOAD"]["name"], fixed_params if is_source else active_params)
 
         wizard_opts = {
             "LP_MaxHarmonic": h_idx,
@@ -157,11 +162,10 @@ class SimulationManager:
             f"LP_{active_side.capitalize()}{h_idx}_CenterAngle": center_ang
         }
 
-        self.driver.run_wizard(wizard_opts)
+        self.driver.wizard.run_wizard(wizard_opts)
 
         graph_name = GRAPH_NAME_PATTERN.format(iter=iter_idx, type=active_side.lower())
 
-        # Pass the global exporter and the current relative subpath to the point selector
         point, mag, ang = POINT_SELECTOR.select_point(
             self.driver,
             graph_name,
@@ -184,14 +188,14 @@ class SimulationManager:
         best_lp = max((x for x in results if x.mode == "LP"), key=lambda x: float(x.point))
         best_sp = next(res for res in results if res.iter_no == best_lp.iter_no and res.mode == "SP")
 
-        self.driver.configure_element(TUNER_SETTINGS["SOURCE"]["name"],
-                                      self._build_tuner_params("SOURCE", best_sp.mag, best_sp.ang))
-        self.driver.configure_element(TUNER_SETTINGS["LOAD"]["name"],
-                                      self._build_tuner_params("LOAD", best_lp.mag, best_lp.ang))
+        self.driver.circuit.configure_element(SCHEMATIC_NAME, TUNER_SETTINGS["SOURCE"]["name"],
+                                              self._build_tuner_params("SOURCE", best_sp.mag, best_sp.ang))
+        self.driver.circuit.configure_element(SCHEMATIC_NAME, TUNER_SETTINGS["LOAD"]["name"],
+                                              self._build_tuner_params("LOAD", best_lp.mag, best_lp.ang))
 
         measured_data = {}
         for m in MEASUREMENT_CONFIG:
-            data = self.driver.get_marker_data(m["graph"], m["marker"], toggle_enable=True)
+            data = self.driver.graph.get_marker_data(m["graph"], m["marker"], toggle_enable=True)
             val = str(data[m["index"]]) if len(data) > m["index"] else "NaN"
             measured_data[m["header"]] = val
 
@@ -202,14 +206,12 @@ class SimulationManager:
 
     def run_state(self, state_values: Tuple, state_idx: int = 1, total_states: int = 1):
         """
-        Executes the optimization loop for a single combination of state variables
-        and delegates the resulting data array to the persistence module.
+        Executes the optimization loop for a single combination of state variables.
         """
         LOGGER.info(f"├── PROCESSING STATE {state_idx}/{total_states}: {state_values}")
 
         state_dir_name = f"State No {state_idx}"
 
-        # Ensure the directories exist before passing the path to the exporter
         current_state_graph_dir = os.path.join(GRAPHS_DIR, state_dir_name)
         if not os.path.exists(current_state_graph_dir):
             os.makedirs(current_state_graph_dir)
@@ -220,7 +222,6 @@ class SimulationManager:
             os.makedirs(current_state_emp_dir)
             LOGGER.debug(f"│   ├── Created EMP directory: {current_state_emp_dir}")
 
-        # Define the relative path to be used by the DataExporter for graphic artifacts
         export_subpath = os.path.join("graphs", state_dir_name)
 
         for idx, val in enumerate(state_values):
@@ -256,21 +257,18 @@ class SimulationManager:
         LOGGER.debug("├── Finalizing state configuration and preparing data export...")
         measured_data, tuner_data = self._finalize_state(current_results)
 
-        # Assemble the final row data for export
         measured_row = [measured_data[m["header"]] for m in MEASUREMENT_CONFIG]
         row_data = [state_idx] + list(state_values) + measured_row + list(tuner_data)
 
         for res in current_results:
             row_data.extend([res.point, res.mag, res.ang])
 
-        # Delegate the persistence operation to the generic DataExporter with specific file path
         csv_subpath = os.path.join("csv results", "simulation_results.csv")
         self.exporter.append_csv_row(csv_subpath, row_data)
 
-        # AWR project file saving uses the driver wrapper mechanism
         emp_filename = f"simulation_state_{state_idx}.emp"
         full_emp_path = os.path.join(current_state_emp_dir, emp_filename)
-        self.driver.save_current_project_as(full_emp_path)
+        self.driver.project.save_current_project_as(full_emp_path)
 
         LOGGER.info(f"└── STATE {state_idx} COMPLETE")
         return measured_data
@@ -305,16 +303,13 @@ class SimulationManager:
 
 def main():
     try:
-        # Initialize Driver with Auto-Launch capability using configuration variables
         selected_driver = AWRDriver(exe_path=AWR_PATH)
 
-        # Load the operational project template required for processing
         LOGGER.info("├── Loading Project Template...")
-        if not selected_driver.open_existing_project(PROJECT_TEMPLATE_PATH):
+        if not selected_driver.project.open_existing_project(PROJECT_TEMPLATE_PATH):
             LOGGER.critical("└── Failed to load project template. Aborting sequence.")
             return
 
-        # Start the simulation engine
         engine = SimulationManager(driver=selected_driver)
         engine.start()
 

@@ -1,149 +1,152 @@
 import pyawr.mwoffice as mwoffice
-import logging
-
-# Çıktıları ekranda düzgün görebilmek için standart loglama ayarları
-logging.basicConfig(level=logging.INFO, format='%(message)s')
-LOGGER = logging.getLogger(__name__)
+from collections import deque
 
 
-def replace_and_rewire_element(
-        app_instance,
-        schematic_title: str,
-        target_designator: str,
-        new_element_type: str,
-        allow_partial_match: bool = False
-) -> dict:
-    LOGGER.info(
-        f"İşlem Başlatıldı: Şematik='{schematic_title}', Hedef='{target_designator}', Yeni Element='{new_element_type}'")
-
-    # 1. Şematik Kontrolü
+def get_element_data(app_instance, schematic_name, target_name):
+    """Reads the center (x, y) coordinates and node coordinates of the specified element."""
     try:
-        project_reference = app_instance.Project
-        active_schematic = project_reference.Schematics(schematic_title)
-        LOGGER.info(f" ├─ Şematik bağlantısı kuruldu: {active_schematic.Name}")
+        schematic = app_instance.Project.Schematics(schematic_name)
     except Exception:
-        LOGGER.error(f" └─ HATA: Şematik bulunamadı: '{schematic_title}'")
-        return {"success": False, "error": "Şematik bulunamadı"}
+        print(f"[AWR_Automation] |-- [Schematic] |-- ERROR: Schematic '{schematic_name}' not found.")
+        return None, None, []
 
-    identified_element = None
-
-    # 2. Elementi İsmine veya ID parametresine göre ara
-    for candidate_element in active_schematic.Elements:
-        element_identifier = candidate_element.Name
-        is_match = False
-
-        if allow_partial_match:
-            if target_designator in element_identifier:
-                is_match = True
-        else:
-            if target_designator == element_identifier:
-                is_match = True
-
-        # İsim eşleşmezse, "ID" parametresine bakarak eşleştirmeyi dene
-        if not is_match and candidate_element.Parameters.Exists("ID"):
-            element_id_value = candidate_element.Parameters("ID").ValueAsString
-            if element_id_value == target_designator:
-                is_match = True
-
-        if is_match:
-            identified_element = candidate_element
-            LOGGER.info(f" ├─ Hedef element bulundu: {identified_element.Name}")
+    target_element = None
+    for elem in schematic.Elements:
+        if elem.Name == target_name or (
+                elem.Parameters.Exists("ID") and elem.Parameters("ID").ValueAsString == target_name):
+            target_element = elem
             break
 
-    if identified_element is None:
-        LOGGER.warning(f" └─ UYARI: Element BULUNAMADI: '{target_designator}'")
-        return {"success": False, "error": "Element bulunamadı"}
+    if not target_element:
+        print(f"[AWR_Automation] |-- [Element] |-- ERROR: Element '{target_name}' not found.")
+        return None, None, []
 
-    # 3. Eski Bacak (Node) koordinatlarını ve merkez konumunu al
-    old_node_coordinates = []
+    center_x = target_element.x
+    center_y = target_element.y
+
+    node_coords = []
+    for node in target_element.Nodes:
+        node_coords.append((node.x, node.y))
+
+    print(
+        f"[AWR_Automation] |-- [Element] |-- INFO: Read data for [{target_name}]. Center: ({center_x}, {center_y}), Nodes: {len(node_coords)}")
+    return center_x, center_y, node_coords
+
+
+def delete_element(app_instance, schematic_name, target_name):
+    """Deletes the specified element from the schematic."""
+    schematic = app_instance.Project.Schematics(schematic_name)
+
+    target_element = None
+    for elem in schematic.Elements:
+        if elem.Name == target_name or (
+                elem.Parameters.Exists("ID") and elem.Parameters("ID").ValueAsString == target_name):
+            target_element = elem
+            break
+
+    if target_element:
+        old_name = target_element.Name
+        target_element.Delete()
+        print(f"[AWR_Automation] |-- [Element] |-- SUCCESS: Deleted [{old_name}].")
+        return True
+    else:
+        print(f"[AWR_Automation] |-- [Element] |-- WARNING: Element to delete ({target_name}) not found.")
+        return False
+
+
+def add_new_library_element(app_instance, schematic_name, browser_path, x_pos, y_pos):
+    """Adds a new element from the library to the specified coordinates and returns its name."""
+    schematic = app_instance.Project.Schematics(schematic_name)
+
     try:
-        # Bacakları tarayarak X ve Y koordinatlarını hafızaya al
-        for idx, node in enumerate(identified_element.Nodes):
-            # AWR API'sinde Node nesnesi üzerinden X ve Y koordinatları okunabilir
-            old_node_coordinates.append((node.x, node.y))
-            LOGGER.info(f" │  ├── Eski Bacak {idx + 1}: X={node.x}, Y={node.y}")
+        new_element = schematic.Elements.AddLibraryElement(browser_path, x_pos, y_pos)
+        print(f"[AWR_Automation] |-- [Library] |-- SUCCESS: Added library element. Assigned Name: {new_element.Name}")
+        return new_element.Name
     except Exception as e:
-        LOGGER.error(f" │  └── HATA: Bacak koordinatları okunamadı: {e}")
-        return {"success": False, "error": "Bacaklar okunamadı"}
+        print(f"[AWR_Automation] |-- [Library] |-- ERROR: Failed to add library element. Details: {e}")
+        return None
 
-    elem_x = identified_element.x
-    elem_y = identified_element.y
-    old_name = identified_element.Name
 
-    # 4. Eski Elementi Sil
-    try:
-        identified_element.Delete()
-        LOGGER.info(f" ├─ Eski element '{old_name}' SİLİNDİ.")
-    except Exception as e:
-        LOGGER.error(f" └─ HATA: Element silinemedi: {e}")
-        return {"success": False, "error": "Silme hatası"}
+def rewire_mapped_element(app_instance, schematic_name, new_element_name, old_node_coords, node_mapping):
+    """
+    Draws wires between the old node coordinates and the new element's nodes based on a specific mapping.
 
-    # 5. Yeni Elementi Aynı Merkez Koordinatına Ekle
-    try:
-        # Kaynak: CSchematics.Elements.Add(Name, x, y)
-        new_element = active_schematic.Elements.Add(new_element_type, elem_x, elem_y)
-        LOGGER.info(f" ├─ Yeni element '{new_element.Name}' EKLENDİ.")
-    except Exception as e:
-        LOGGER.error(f" └─ HATA: Yeni element eklenemedi: {e}")
-        return {"success": False, "error": "Ekleme hatası"}
+    :param node_mapping: dict, e.g., {7: 1, 2: 2} -> Maps old node index (key) to new node index (value).
+                         Note: AWR node indices are typically 1-based, but Python lists are 0-based.
+    """
+    schematic = app_instance.Project.Schematics(schematic_name)
 
-    # 6. Eski bacak noktaları ile yeni bacak noktaları arasına kablo çek (Wiring)
+    if not schematic.Elements.Exists(new_element_name):
+        print(f"[AWR_Automation] |-- [Wiring] |-- ERROR: Target element '{new_element_name}' not found for wiring.")
+        return
+
+    new_element = schematic.Elements(new_element_name)
+
+    # Store new node coordinates
+    new_node_coords = []
+    for node in new_element.Nodes:
+        new_node_coords.append((node.x, node.y))
+
     wire_count = 0
-    try:
-        new_node_coordinates = []
-        for node in new_element.Nodes:
-            new_node_coordinates.append((node.x, node.y))
+    print(f"[AWR_Automation] |-- [Wiring] |-- INFO: Starting targeted wiring process for {new_element_name}.")
 
-        # Eski ve yeni elementin bacak sayıları farklı olabilir, minimum olan kadar eşleştirip kablo çekilir
-        for i in range(min(len(old_node_coordinates), len(new_node_coordinates))):
-            old_x, old_y = old_node_coordinates[i]
-            new_x, new_y = new_node_coordinates[i]
+    for old_node_idx, new_node_idx in node_mapping.items():
+        # Convert 1-based schematic node index to 0-based Python list index
+        old_list_idx = old_node_idx - 1
+        new_list_idx = new_node_idx - 1
 
-            # Eğer eski bacak ile yeni bacak aynı noktada değilse (arada boşluk oluştuysa) kablo çiz
-            if (old_x != new_x) or (old_y != new_y):
-                # Kaynak: CSchematic.Wires.Add(x1, y1, x2, y2)
-                active_schematic.Wires.Add(old_x, old_y, new_x, new_y)
-                wire_count += 1
-                LOGGER.info(f" │  ├── Kablo çekildi: ({old_x}, {old_y}) ---> ({new_x}, {new_y})")
-            else:
-                LOGGER.info(f" │  ├── Bacaklar kesişiyor, kabloya gerek yok: ({new_x}, {new_y})")
+        # Validate indices to prevent IndexError
+        if old_list_idx >= len(old_node_coords):
+            print(
+                f"[AWR_Automation] |-- [Wiring] |-- WARNING: Old node index {old_node_idx} is out of bounds. Skipping.")
+            continue
+        if new_list_idx >= len(new_node_coords):
+            print(
+                f"[AWR_Automation] |-- [Wiring] |-- WARNING: New node index {new_node_idx} is out of bounds. Skipping.")
+            continue
 
-        LOGGER.info(f" └── İşlem başarıyla tamamlandı. Toplam çekilen kablo: {wire_count}")
+        old_x, old_y = old_node_coords[old_list_idx]
+        new_x, new_y = new_node_coords[new_list_idx]
 
-    except Exception as e:
-        LOGGER.error(f" └─ HATA: Kablo (Wire) çekilirken hata: {e}")
-        return {"success": False, "error": "Kablolama hatası"}
+        # Draw wire if there is a gap between coordinates
+        if old_x != new_x or old_y != new_y:
+            schematic.Wires.Add(old_x, old_y, new_x, new_y)
+            wire_count += 1
+            print(
+                f"[AWR_Automation] |-- [Wiring] |-- SUCCESS: Wired Old Node {old_node_idx} -> New Node {new_node_idx} | Coords: ({old_x}, {old_y}) -> ({new_x}, {new_y})")
+        else:
+            print(
+                f"[AWR_Automation] |-- [Wiring] |-- INFO: Nodes {old_node_idx} and {new_node_idx} perfectly overlap. No wire needed.")
 
-    return {
-        "success": True,
-        "old_element": old_name,
-        "new_element": new_element.Name,
-        "wires_added": wire_count
+    print(f"[AWR_Automation] |-- [Wiring] |-- SUMMARY: Completed with {wire_count} physical wire connections.")
+
+
+if __name__ == "__main__":
+    app = mwoffice.CMWOffice()
+    schematic_name = "Load_Pull_Template"
+    target_element = "CFH1"
+    library_path = "BP:\\Circuit Elements\\Libraries\\*MA_RFP -- v0.0.2.5\\GaN Product\\CGHV1F006S"
+
+    # Define the custom pin mapping (1-based index)
+    # Format: {Old_Element_Node: New_Element_Node}
+    custom_node_mapping = {
+        1: 1,  # Old node 1 connects to New node 1
+        2: 2,  # Old node 2 connects to New node 2
+        7: 1  # Old node 7 connects to New node 1
     }
 
+    print(f"[AWR_Automation] |-- [Main] |-- INFO: Initiating element replacement protocol.")
 
-# ==========================================
-# ANA ÇALIŞTIRMA BLOĞU (TEST)
-# ==========================================
-if __name__ == "__main__":
-    try:
-        # AWR uygulamasına bağlan
-        app = mwoffice.CMWOffice()
+    # 1. Read Data
+    cx, cy, old_nodes = get_element_data(app, schematic_name, target_element)
 
-        # --- KULLANICI AYARLARI ---
-        hedef_sematik = "Load_Pull_Template"
-        hedef_element = "CFH1"  # Silinecek eski element (örn: R1, C2)
-        yeni_element_tipi = "GBJT"  # Yerine eklenecek yeni element (örn: transistör ise GBJT, kapasitör ise CAP)
+    if old_nodes:
+        # 2. Delete Old Element
+        delete_element(app, schematic_name, target_element)
 
-        sonuc = replace_and_rewire_element(
-            app_instance=app,
-            schematic_title=hedef_sematik,
-            target_designator=hedef_element,
-            new_element_type=yeni_element_tipi,
-            allow_partial_match=False
-        )
+        # 3. Add New Element from Library
+        new_name = add_new_library_element(app, schematic_name, library_path, cx, cy)
 
-        print("\nÖzet Rapor:", sonuc)
-
-    except Exception as e:
-        print(f"Uygulama başlatılamadı veya bir hata oluştu: {e}")
+        # 4. Wire the specific mapped nodes
+        if new_name:
+            rewire_mapped_element(app, schematic_name, new_name, old_nodes, custom_node_mapping)
