@@ -1,7 +1,7 @@
 """
 manager.py (Graph Domain)
 Handles all API interactions concerning graphing, data extraction,
-marker operations, and graph creation.
+marker operations, graph creation, and measurement additions.
 """
 
 import re
@@ -9,9 +9,8 @@ from typing import List, Dict, Any
 
 from awr.graph.awr_get_marker_value import get_marker_value
 from awr.graph.awr_get_broadband_contours import extract_graph_data
-
-# Import the new graph creation module and its specific GraphType enum
 from awr.graph.new_graph import create_new_graph, GraphType
+from awr.graph.add_measurements import add_measurement_to_graph
 
 
 class GraphManager:
@@ -22,16 +21,17 @@ class GraphManager:
         self.app = app
 
     def add_new_graph(self, graph_name: str, graph_type: GraphType) -> bool:
-        """
-        Creates a new graph in the project. Requires a GraphType enum for type safety.
-        """
+        """Creates a new graph in the project."""
         return create_new_graph(self.app, graph_name, graph_type)
 
+    def add_measurement(self, graph_name: str, source_name: str, measurement_expression: str) -> bool:
+        """
+        Adds a defined measurement calculation to a specified graph based on a source document.
+        """
+        return add_measurement_to_graph(self.app, graph_name, source_name, measurement_expression)
+
     def get_marker_data(self, graph: str, marker: str, toggle_enable: bool = False) -> List[float]:
-        """
-        Retrieves numerical data from a graph marker and processes it into
-        a structured floating point list.
-        """
+        """Retrieves numerical data from a graph marker."""
         raw_output = get_marker_value(
             self.app,
             graph_title=graph,

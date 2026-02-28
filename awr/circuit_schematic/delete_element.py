@@ -1,104 +1,68 @@
+"""
+delete_element.py
+Provides functionality to safely delete specific elements from an AWR schematic.
+Delegates the search logic to the find_element module to comply with SRP.
+"""
+
 import pyawr.mwoffice as mwoffice
-import logging
+import sys
+from typing import Any
 
-# Çıktıları ekranda düzgün görebilmek için standart loglama ayarları
-logging.basicConfig(level=logging.INFO, format='%(message)s')
-LOGGER = logging.getLogger(__name__)
+from logger.logger import LOGGER
 
+from awr.circuit_schematic.find_element import find_schematic_element
 
 def delete_schematic_element(
-        app_instance,
-        schematic_title: str,
+        app: Any,
+        schematic_name: str,
         target_designator: str,
         allow_partial_match: bool = False
-) -> dict:
-    LOGGER.info(f"Silme İşlemi Başlatıldı: Şematik='{schematic_title}', Element='{target_designator}'")
+) -> bool:
+    """
+    Deletes a specified element from a given schematic after resolving its reference.
+    """
+    LOGGER.info(f"├── Initiating deletion sequence for target '{target_designator}' in '{schematic_name}'")
 
-    # 1. Şematik Kontrolü
-    try:
-        project_reference = app_instance.Project
-        active_schematic = project_reference.Schematics(schematic_title)
-        LOGGER.info(f" ├─ Şematik bağlantısı kuruldu: {active_schematic.Name}")
-    except Exception:
-        LOGGER.error(f" └─ HATA: Şematik bulunamadı: '{schematic_title}'")
-        return {"success": False, "error": "Şematik bulunamadı"}
+    # Delegate the search operation to the specialized module
+    identified_element = find_schematic_element(app, schematic_name, target_designator, allow_partial_match)
 
-    identified_element = None
-
-    # 2. Elementi İsmine veya ID parametresine göre ara
-    for candidate_element in active_schematic.Elements:
-        element_identifier = candidate_element.Name
-        is_match = False
-
-        if allow_partial_match:
-            if target_designator in element_identifier:
-                is_match = True
-        else:
-            if target_designator == element_identifier:
-                is_match = True
-
-        # İsim eşleşmezse, "ID" parametresine bakarak eşleştirmeyi dene [1]
-        if not is_match and candidate_element.Parameters.Exists("ID"):
-            element_id_value = candidate_element.Parameters("ID").ValueAsString
-            if element_id_value == target_designator:
-                is_match = True
-
-        # Eşleşme bulunduysa döngüden çık
-        if is_match:
-            identified_element = candidate_element
-            LOGGER.info(f" ├─ Hedef element bulundu: {identified_element.Name}")
-            break
-
-    # Eşleşme bulunamadıysa işlemi durdur
     if identified_element is None:
-        LOGGER.warning(f" └─ UYARI: Element BULUNAMADI: '{target_designator}'")
-        return {"success": False, "error": "Element bulunamadı"}
+        LOGGER.warning(f"└── Deletion aborted: Target element reference could not be resolved.")
+        return False
 
     element_name = identified_element.Name
 
-    # 3. Elementi Sil [2]
+    # Execute Deletion
     try:
         delete_success = identified_element.Delete()
 
         if delete_success:
-            LOGGER.info(f" └── Element '{element_name}' başarıyla SİLİNDİ.")
+            LOGGER.info(f"└── Successfully DELETED element '{element_name}'.")
+            return True
         else:
-            LOGGER.error(f" └── HATA: Element '{element_name}' silinirken API 'False' döndürdü.")
+            LOGGER.error(f"└── API returned False while attempting to delete '{element_name}'.")
+            return False
 
     except Exception as e:
-        LOGGER.error(f" └── HATA: Element silinirken bir istisna oluştu: {e}")
-        delete_success = False
-
-    # 4. Sonuç Raporunu Döndür
-    return {
-        "schematic_source": active_schematic.Name,
-        "deleted_element_identifier": element_name,
-        "success": delete_success
-    }
+        LOGGER.error(f"└── Encountered an exception during the deletion of '{element_name}': {e}")
+        return False
 
 
-# ==========================================
-# ANA ÇALIŞTIRMA BLOĞU (TEST)
-# ==========================================
+# Standalone Test Execution Block
 if __name__ == "__main__":
+    LOGGER.info("Starting standalone test sequence for delete_element.py module.")
+
     try:
-        # AWR uygulamasına bağlan
-        app = mwoffice.CMWOffice()
+        test_app = mwoffice.CMWOffice()
+        LOGGER.info("├── Successfully connected to AWR Microwave Office for testing.")
 
-        # --- KULLANICI AYARLARI ---
-        # İşlem yapılacak şematiğin ve silinecek elementin ismini buraya yazın
-        hedef_sematik = "Load_Pull_Template"
-        hedef_element = "CFH1"  # Örnek: "R1", "TL1" veya ID'si
+        result = delete_schematic_element(test_app, "Load_Pull_Template", "CFH1")
 
-        # Fonksiyonu çağır
-        sonuc_raporu = delete_schematic_element(
-            app_instance=app,
-            schematic_title=hedef_sematik,
-            target_designator=hedef_element,
-            allow_partial_match=False
-        )
+        if result:
+            LOGGER.info("└── Test execution sequence completed successfully.")
+        else:
+            LOGGER.warning("└── Test execution completed without successful deletion.")
 
-        print("\nİşlem Sonucu Raporu:", sonuc_raporu)
-
-    except Exception as e:
-        print(f"Uygulama başlatılamadı veya bir hata oluştu: {e}")
+    except Exception as ex:
+        LOGGER.critical(f"└── Test execution failed. Details: {ex}")
+        sys.exit(1)

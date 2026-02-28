@@ -1,110 +1,110 @@
+"""
+awr_configure_schematic_element.py
+Provides functionality to configure specific parameters of a target element.
+Delegates the search logic to the isolated find_element module to comply with SRP.
+Strictly adheres to the tree-branch logging hierarchy.
+"""
+
+import pyawr.mwoffice as mwoffice
+import sys
+from typing import Dict, Any
+
+# Import the logger according to the established architecture
 from logger.logger import LOGGER
+
+from awr.circuit_schematic.find_element import find_schematic_element
 
 
 def configure_schematic_element(
-        app_instance,
-        schematic_title: str,
+        app: Any,
+        schematic_name: str,
         target_designator: str,
-        parameter_map: dict[str, str],
+        parameter_map: Dict[str, Any],
         allow_partial_match: bool = False
-) -> dict:
+) -> bool:
     """
-    Configures specific parameters of a target element within an AWR Microwave Office schematic.
-
-    This function locates a schematic and an element (by Name or ID), then updates
-    the specified parameters. It logs the process using a tree-structured format
-    for readability.
+    Configures specific parameters of a target element within an AWR schematic.
 
     Args:
-        schematic_title (str): The name of the schematic in the project.
+        app: The active AWR MWOffice COM application instance.
+        schematic_name (str): The name of the schematic in the project.
         target_designator (str): The Name or ID of the element to configure.
-        parameter_map (dict): A dictionary mapping parameter names to their new values.
-        allow_partial_match (bool): If True, allows matching elements where the
-                                    identifier is a substring of the element name.
+        parameter_map (Dict[str, Any]): A dictionary mapping parameter names to new values.
+        allow_partial_match (bool): If True, allows substring matching for the element identifier.
 
     Returns:
-        dict: A summary report containing the schematic name, element identifier,
-              and the updated parameters.
-
-    Raises:
-        RuntimeError: If the AWR session cannot start or the element is not found.
-        ValueError: If the specified schematic does not exist.
+        bool: True if at least one parameter was successfully updated, False otherwise.
     """
-    LOGGER.info(f"Configuring Element: '{target_designator}' in '{schematic_title}'")
+    LOGGER.info(f"├── Initiating configuration sequence for '{target_designator}' in '{schematic_name}'")
 
-    try:
-        application_session = app_instance
-    except Exception as connection_exception:
-        LOGGER.critical(f"Failed to initialize AWR Microwave Office session: {connection_exception}")
-        raise RuntimeError(f"Failed to initialize AWR Microwave Office session: {connection_exception}")
-
-    try:
-        project_reference = application_session.Project
-        active_schematic = project_reference.Schematics(schematic_title)
-        LOGGER.debug(f"  ├─ Schematic connection established: {active_schematic.Name}")
-    except Exception:
-        LOGGER.error(f"  └─ Schematic not found: '{schematic_title}'")
-        raise ValueError(f"The schematic '{schematic_title}' could not be located within the active project.")
-
-    identified_element = None
-
-    # Iterate through all elements to find a match based on Name or ID
-    for candidate_element in active_schematic.Elements:
-        element_identifier = candidate_element.Name
-        is_match = False
-
-        if allow_partial_match:
-            if target_designator in element_identifier:
-                is_match = True
-        else:
-            if target_designator == element_identifier:
-                is_match = True
-
-        # If name match fails, attempt to match via the 'ID' parameter
-        if not is_match and candidate_element.Parameters.Exists("ID"):
-            element_id_value = candidate_element.Parameters("ID").ValueAsString
-            if element_id_value == target_designator:
-                is_match = True
-
-        if is_match:
-            identified_element = candidate_element
-            LOGGER.debug(f"  ├─ Element matched by identifier: {identified_element.Name}")
-            break
+    # Delegate the search operation to the specialized module
+    identified_element = find_schematic_element(app, schematic_name, target_designator, allow_partial_match)
 
     if identified_element is None:
-        LOGGER.warning(f"  └─ Element NOT found: {target_designator}")
-        raise RuntimeError(
-            f"No element matching designator '{target_designator}' was found in schematic '{schematic_title}'.")
+        LOGGER.warning(f"└── Configuration aborted: Target element reference could not be resolved.")
+        return False
 
-    configuration_report = {}
-
-    # Convert items to a list to determine the last iteration for logging formatting
+    element_name = identified_element.Name
     param_items = list(parameter_map.items())
     total_params = len(param_items)
+    updates_made = 0
 
-    for index, (parameter_key, parameter_value) in enumerate(param_items):
-        if identified_element.Parameters.Exists(parameter_key):
-            target_parameter = identified_element.Parameters(parameter_key)
+    LOGGER.debug(f"├── Applying parameters to '{element_name}'...")
+
+    for index, (param_key, param_value) in enumerate(param_items):
+        is_last_item = (index == total_params - 1)
+        tree_char = "└──" if is_last_item else "├──"
+
+        if identified_element.Parameters.Exists(param_key):
+            target_parameter = identified_element.Parameters(param_key)
             old_value = target_parameter.ValueAsString
 
-            # Update the parameter value in the schematic
-            target_parameter.ValueAsString = str(parameter_value)
-            configuration_report[parameter_key] = target_parameter.ValueAsString
-
-            # Determine tree character based on loop position
-            is_last_item = (index == total_params - 1)
-            tree_char = "└──" if is_last_item else "├──"
-
-            LOGGER.info(f"  {tree_char} {parameter_key}: [{old_value}] -> [{parameter_value}]")
-
+            try:
+                # Update the parameter value in the schematic
+                target_parameter.ValueAsString = str(param_value)
+                LOGGER.info(f"│   {tree_char} {param_key}: [{old_value}] -> [{param_value}]")
+                updates_made += 1
+            except Exception as e:
+                LOGGER.error(f"│   {tree_char} Failed to update '{param_key}'. Exception: {e}")
         else:
-            LOGGER.warning(f"  ├── Parameter '{parameter_key}' missing on element.")
+            LOGGER.warning(f"│   {tree_char} Parameter '{param_key}' is missing on element '{element_name}'.")
 
-    if not configuration_report:
-        LOGGER.info(f"  └─ No parameters were updated.")
+    if updates_made > 0:
+        LOGGER.info(f"└── Successfully configured {updates_made} parameter(s) for '{element_name}'.")
+        return True
+    else:
+        LOGGER.warning(f"└── No parameters were updated for '{element_name}'.")
+        return False
 
-    return {
-        "schematic_source": active_schematic.Name,
-        "element_identifier": identified_element.Name,
-        "applied_configurations": configuration_report
-    }
+
+# Standalone Test Execution Block
+if __name__ == "__main__":
+    LOGGER.info("Starting standalone test sequence for awr_configure_schematic_element.py module.")
+
+    try:
+        # Attempt to establish a connection with an active AWR instance
+        test_app = mwoffice.CMWOffice()
+        LOGGER.info("├── Successfully connected to AWR Microwave Office for testing.")
+
+        # Test Parameters
+        test_schematic = "Load_Pull_Template"
+        test_target = "R1"
+        test_params = {"R": "50", "T": "290"}
+
+        # Execute the function
+        result = configure_schematic_element(
+            app=test_app,
+            schematic_name=test_schematic,
+            target_designator=test_target,
+            parameter_map=test_params,
+            allow_partial_match=False
+        )
+
+        if result:
+            LOGGER.info("└── Test execution sequence completed successfully.")
+        else:
+            LOGGER.warning("└── Test execution completed, but the element could not be configured.")
+
+    except Exception as ex:
+        LOGGER.critical(f"└── Test execution failed. Ensure AWR application is running. Details: {ex}")
+        sys.exit(1)
