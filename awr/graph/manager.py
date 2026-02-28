@@ -7,8 +7,8 @@ marker operations, graph creation, and measurement additions.
 import re
 from typing import List, Dict, Any
 
-from awr.graph.awr_get_marker_value import get_marker_value
-from awr.graph.awr_get_broadband_contours import extract_graph_data
+from awr.graph.get_marker_value import get_marker_value
+from awr.graph.get_broadband_contours import extract_graph_data
 from awr.graph.new_graph import create_new_graph, GraphType
 from awr.graph.add_measurements import add_measurement_to_graph
 

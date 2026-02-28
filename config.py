@@ -2,6 +2,13 @@ import os
 from datetime import datetime
 from paths import *
 
+
+##################################################
+# PATH MANAGEMENT INITIALIZATION
+AWR_PATH = r"C:\Program Files (x86)\AWR\AWRDE\19\MWOffice.exe"
+PROJECT_TEMPLATE_PATH = r"C:\Users\Public\Documents\AWR Projects\loadpull.emp"
+##################################################
+
 import objects
 from objects import generate_sweep_values
 from rfdesign.loadpull.iteration_point_selector import BroadbandOptimumSelector

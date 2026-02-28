@@ -51,14 +51,14 @@ class AWRDriver:
 
         # NOTE: Existing session attachment block is currently commented out in your version.
         # Uncommenting this block is recommended if you wish to attach to an already running instance.
-        """
+
         try:
             app = mwoffice.CMWOffice()
             LOGGER.info("└── Successfully connected to active session.")
             return app
         except Exception:
             LOGGER.debug("├── No active session found.")
-        """
+
 
         if exe_path:
             if os.path.exists(exe_path):

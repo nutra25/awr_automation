@@ -1,19 +1,31 @@
 """
 manager.py (Wizard Domain)
-Encapsulates API operations required to interact with integrated
-AWR wizards, specifically the Load Pull sequence.
+Handles interactions with AWR automated wizards, templates, and global scripts.
+Enforces domain encapsulation.
 """
 
-from typing import Dict, Any
-from awr.wizard.awr_loadpull_wizard import run_loadpull_wizard
+from typing import Any, Dict
+
+from awr.wizard.create_load_pull_template import create_load_pull_template
+from awr.wizard.loadpull_wizard import run_loadpull_wizard
+
 
 class WizardManager:
     """
-    Manages AWR Wizard automation interactions.
+    Manages AWR Wizard and Script automation sequences.
     """
-    def __init__(self, app):
+    def __init__(self, app: Any):
         self.app = app
 
-    def run_wizard(self, options: Dict[str, Any]) -> None:
-        """Triggers the Load Pull Wizard with a specified configuration dictionary."""
-        run_loadpull_wizard(self.app, options)
+    def create_load_pull_template(self) -> bool:
+        """
+        Executes the 'Load Pull Template' script and automatically dismisses
+        any associated blocking UI pop-ups.
+        """
+        return create_load_pull_template(self.app)
+
+    def run_loadpull_wizard(self, config_params: Dict[str, Any]) -> bool:
+        """
+        Configures and executes the automated Load Pull Wizard using a specific parameter dictionary.
+        """
+        return run_loadpull_wizard(self.app, config_params)
