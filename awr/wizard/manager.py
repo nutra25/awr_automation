@@ -24,8 +24,9 @@ class WizardManager:
         """
         return create_load_pull_template(self.app)
 
-    def run_loadpull_wizard(self, config_params: Dict[str, Any]) -> bool:
+    def run_wizard(self, config_params: Dict[str, Any]) -> bool:
         """
         Configures and executes the automated Load Pull Wizard using a specific parameter dictionary.
+        Mapped as 'run_wizard' to strictly fulfill the IWizardManager protocol.
         """
         return run_loadpull_wizard(self.app, config_params)

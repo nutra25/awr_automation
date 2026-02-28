@@ -10,8 +10,6 @@ from awr.circuit_schematic.configure_schematic_element import configure_schemati
 from awr.circuit_schematic.configure_schematic_rf_frequency import configure_schematic_rf_frequency
 from awr.circuit_schematic.delete_element import delete_schematic_element
 from awr.circuit_schematic.find_element import find_schematic_element
-
-# YENİ EKLENEN İÇE AKTARIMLAR
 from awr.circuit_schematic.add_library_element import add_library_element
 from awr.circuit_schematic.add_wire import add_wire
 from awr.circuit_schematic.replace_element import replace_element

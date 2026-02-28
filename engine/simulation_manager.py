@@ -8,15 +8,15 @@ engineering analyses to strategy modules within the rfdesign domain.
 import itertools
 import time
 import os
+import sys
 from typing import List, Tuple, Any, Dict, Protocol, Union
 
 from config import *
 from logger.logger import LOGGER
 from dataexporter.dataexporter import DataExporter
 
-# Assuming handlers and sequence are now routed through your new loadpull manager
 from rfdesign.loadpull.handlers import StateHandler
-from rfdesign.loadpull.manager import LoadPullManager # Adjusted to your new structure
+from rfdesign.loadpull.manager import LoadPullManager
 
 
 class ICircuitManager(Protocol):
@@ -55,20 +55,25 @@ class SimulationManager:
             schematic_name=SCHEMATIC_NAME
         )
 
-        # Initialize the Load-Pull Domain Manager
+        # Initialize the Load-Pull Domain Manager passing parameters inside config_params
         self.lp_manager = LoadPullManager(
             driver=self.driver,
             exporter=self.exporter,
-            schematic_name=SCHEMATIC_NAME,
-            tuner_settings=TUNER_SETTINGS,
-            measurement_config=MEASUREMENT_CONFIG,
-            graph_name_pattern=GRAPH_NAME_PATTERN,
-            point_selector=POINT_SELECTOR,
-            iteration_count=ITERATION_COUNT,
-            radius_list=RADIUS_LIST
+            config_params={
+                "schematic_name": SCHEMATIC_NAME,
+                "tuner_settings": TUNER_SETTINGS,
+                "measurement_config": MEASUREMENT_CONFIG,
+                "graph_name_pattern": GRAPH_NAME_PATTERN,
+                "point_selector": POINT_SELECTOR,
+                "iteration_count": ITERATION_COUNT,
+                "radius_list": RADIUS_LIST
+            }
         )
 
-        # Initialize CSV
+        # Initialize CSV Storage Directory safely
+        csv_dir = os.path.join(RUN_DIR, "csv results")
+        os.makedirs(csv_dir, exist_ok=True)
+
         initial_headers = self._generate_csv_headers()
         csv_subpath = os.path.join("csv results", "simulation_results.csv")
         self.exporter.initialize_csv(csv_subpath, initial_headers)
@@ -140,3 +145,17 @@ class SimulationManager:
 
         elapsed_time = time.time() - start_time
         LOGGER.info(f"└── Global Simulation Sequence Completed in {elapsed_time:.2f} seconds.")
+
+
+if __name__ == "__main__":
+    LOGGER.info("Starting standalone test sequence for simulation_manager.py")
+    try:
+        class DummyDriver:
+            pass
+
+        test_driver = DummyDriver()
+        test_manager = SimulationManager(driver=test_driver)
+        LOGGER.info("└── Test execution sequence completed successfully")
+    except Exception as ex:
+        LOGGER.critical(f"└── Test execution failed: {ex}")
+        sys.exit(1)
