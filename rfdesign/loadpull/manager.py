@@ -1,54 +1,66 @@
 """
-manager.py (Load-Pull Domain)
-Acts as a facade for all load-pull specific operations, encapsulating
-state handling, sequencing, and point selection strategies.
+manager.py
+Acts as the domain controller for the Load-Pull operations.
+Orchestrates the sequence execution using the structured LoadPullConfig.
 """
 
-from typing import Dict, Any, Tuple, List
-
-# Importing specialized domain logic
-from rfdesign.loadpull.handlers import StateHandler
+from typing import Any, Tuple, Dict, List
+import objects
+from logger.logger import LOGGER
+from config import LoadPullConfig
 from rfdesign.loadpull.sequence import LoadPullSequence
+
 
 class LoadPullManager:
     """
-    Manages high-level Load-Pull operations by delegating to specialized
-    sequence and state handler modules, ensuring clean architecture.
+    Manages load-pull specific processes and delegates tasks to the sequence handler.
+    Operates strictly via the injected LoadPullConfig branch.
     """
-    def __init__(self, driver: Any, exporter: Any, config_params: Dict[str, Any]):
+
+    def __init__(self, driver: Any, exporter: Any, config: LoadPullConfig):
+        """
+        Initializes the manager and its nested components with the appropriate configuration branch.
+        """
         self.driver = driver
         self.exporter = exporter
+        self.config = config
 
-        # Extract configuration safely
-        schematic_name = config_params.get("schematic_name")
-
-        # Initialize State Handler
-        self.state_handler = StateHandler(
-            circuit_manager=self.driver.circuit,
-            schematic_name=schematic_name
-        )
-
-        # Initialize Sequence Strategy
+        # Instantiate the sequence handler using its specific config branch
         self.sequence = LoadPullSequence(
             driver=self.driver,
             exporter=self.exporter,
-            schematic_name=schematic_name,
-            tuner_settings=config_params.get("tuner_settings"),
-            measurement_config=config_params.get("measurement_config"),
-            graph_name_pattern=config_params.get("graph_name_pattern"),
-            point_selector=config_params.get("point_selector"),
-            iteration_count=config_params.get("iteration_count"),
-            radius_list=config_params.get("radius_list")
+            config=self.config.sequence
         )
 
-    def apply_state(self, config_obj: Any, value: Any) -> None:
+    def execute_sequence(self, export_subpath: str) -> Tuple[Dict, List[objects.PullResult], Tuple]:
         """
-        Delegates configuration application to the StateHandler.
+        Triggers the load-pull sequence and returns the collected metrics.
         """
-        self.state_handler.apply_configuration(config_obj, value)
-
-    def execute_sequence(self, export_subpath: str) -> Tuple[Dict, List, Tuple]:
-        """
-        Delegates the iterative simulation loop to the LoadPullSequence.
-        """
+        LOGGER.info("│   ├── Initiating Load-Pull Sequence...")
         return self.sequence.execute(export_subpath)
+
+
+if __name__ == "__main__":
+    import sys
+    LOGGER.info("├── Starting standalone test sequence for manager.py")
+    try:
+        from config import SequenceConfig, HandlersConfig
+
+        dummy_sequence_config = SequenceConfig(
+            schematic_name="Test",
+            tuner_settings={},
+            measurement_config=[],
+            graph_name_pattern="",
+            point_selector=None,
+            iteration_count=1,
+            radius_list=("0.5",)
+        )
+        dummy_handlers_config = HandlersConfig(schematic_name="Test")
+        dummy_config = LoadPullConfig(handlers=dummy_handlers_config, sequence=dummy_sequence_config)
+
+        manager = LoadPullManager(driver=None, exporter=None, config=dummy_config)
+        LOGGER.info(f"│   ├── Manager Initialized with Config: {manager.config.__class__.__name__}")
+        LOGGER.info("└── Test execution sequence completed successfully")
+    except Exception as ex:
+        LOGGER.critical(f"└── Test execution failed: {ex}")
+        sys.exit(1)

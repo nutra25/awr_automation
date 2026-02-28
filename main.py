@@ -1,10 +1,10 @@
 """
 main.py
 Application entry point.
-Initializes the AWR driver and bootstraps the core simulation engine.
+Initializes the AWR driver and bootstraps the core simulation engine using the hierarchical AppConfig.
 """
 
-from config import AWR_PATH, PROJECT_TEMPLATE_PATH
+from config import app_config
 from logger.logger import LOGGER
 from awr.awr_driver import AWRDriver
 from engine.simulation_manager import SimulationManager
@@ -12,15 +12,20 @@ from engine.simulation_manager import SimulationManager
 
 def main():
     try:
-        selected_driver = AWRDriver(exe_path=AWR_PATH)
+        selected_driver = AWRDriver(exe_path=app_config.awr_path)
 
         LOGGER.info("├── Loading Project Template...")
-        if not selected_driver.project.open_existing_project(PROJECT_TEMPLATE_PATH):
+        # Note: Bypassing new project generation logic to operate strictly on the existing template.
+        if not selected_driver.project.open_existing_project(app_config.project_template_path):
             LOGGER.critical("└── Failed to load project template. Aborting process.")
             return
 
-        # Instantiate and start the core engine
-        engine = SimulationManager(driver=selected_driver)
+        # Pass the specific configuration branches to the core engine
+        engine = SimulationManager(
+            driver=selected_driver,
+            engine_config=app_config.engine,
+            rf_design_config=app_config.rf_design
+        )
         engine.start()
 
     except KeyboardInterrupt:

@@ -1,13 +1,14 @@
 """
 replace_element.py
 Macro-orchestrator that replaces an existing schematic element with a new one
-from a library and rewires the nodes based on a specified mapping.
+(either from a library or a standard element name) and rewires the nodes
+based on a specified mapping.
 Supports both one-to-one and one-to-many node wiring matrices.
 """
 
 import pyawr.mwoffice as mwoffice
 import sys
-from typing import Dict, Any, Union, List
+from typing import Dict, Any, Union, List, Optional
 
 from logger.logger import LOGGER
 
@@ -16,6 +17,7 @@ from awr.circuit_schematic.find_element import find_schematic_element
 from awr.circuit_schematic.get_element_node_positions import get_element_node_positions
 from awr.circuit_schematic.delete_element import delete_schematic_element
 from awr.circuit_schematic.add_library_element import add_library_element
+from awr.circuit_schematic.add_element import add_element
 from awr.circuit_schematic.add_wire import add_wire
 
 
@@ -23,20 +25,20 @@ def replace_element(
         app: Any,
         schematic_name: str,
         target_designator: str,
-        library_path: str,
-        node_mapping: Dict[int, Union[int, List[int]]]
+        node_mapping: Dict[int, Union[int, List[int]]],
+        library_path: Optional[str] = None,
+        element_name: Optional[str] = None
 ) -> bool:
     """
-    Orchestrates the sequence of extracting data, deleting the old element,
-    instantiating the new library element, and applying custom wiring maps.
-    Supports list-based assignments for one-to-many pin connectivity.
+    Orchestrates the sequence of replacing an element and applying custom wiring maps.
+    The new element can be instantiated via library_path or standard element_name.
     """
     LOGGER.info(f"├── Initiating macro sequence: Replace & Rewire for '{target_designator}'")
 
     # 1. Resolve Target and Extract Core Data
     old_element = find_schematic_element(app, schematic_name, target_designator)
     if not old_element:
-        LOGGER.error("└── Sequence aborted: Target element not found.")
+        LOGGER.error(f"└── Sequence aborted: Target element '{target_designator}' not found.")
         return False
 
     center_x = old_element.x
@@ -48,10 +50,17 @@ def replace_element(
         LOGGER.error("└── Sequence aborted: Failed to delete the target element.")
         return False
 
-    # 3. Add the New Library Element
-    new_element = add_library_element(app, schematic_name, library_path, center_x, center_y)
+    # 3. Add the New Element (Flexible Strategy)
+    new_element = None
+    if library_path:
+        LOGGER.debug(f"│   ├── Attempting instantiation via library path: {library_path}")
+        new_element = add_library_element(app, schematic_name, library_path, center_x, center_y)
+    elif element_name:
+        LOGGER.debug(f"│   ├── Attempting instantiation via standard name: {element_name}")
+        new_element = add_element(app, schematic_name, element_name, center_x, center_y)
+
     if not new_element:
-        LOGGER.error("└── Sequence aborted: Failed to instantiate new element.")
+        LOGGER.error("└── Sequence aborted: No valid source (library or name) provided or instantiation failed.")
         return False
 
     # 4. Extract New Element's Nodes
@@ -98,18 +107,22 @@ if __name__ == "__main__":
     LOGGER.info("Starting standalone test sequence for replace_element.py")
     try:
         test_app = mwoffice.CMWOffice()
-        test_schematic = "Load_Pull_Template"
+        test_schematic = "VDS40_Load_Pull"
         test_target = "CFH1"
-        test_lib = "BP:\\Circuit Elements\\Libraries\\*MA_RFP -- v0.0.2.5\\GaN Product\\CGHV1F006S"
 
-        # Test Case: Demonstrating robust one-to-many wiring map
-        test_map = {
-            1: 1,                 # Old 1 to New 1 (Single)
-            2: 2,               # Old 2 to New 2 (List format)
-            3: [3, 4, 5, 6, 7]       # Old 3 to New 3, 4, 5, 6 (One-to-Many)
-        }
+        # Mapping definition
+        test_map = {1: 1, 2: 2, 3: [3, 4]}
 
-        replace_element(test_app, test_schematic, test_target, test_lib, test_map)
+        # Scenario A: Library-based replacement
+        LOGGER.info("Testing Scenario A: Library Path")
+        lib_path = "BP:\\Circuit Elements\\Libraries\\*MA_RFP -- v0.0.2.5\\GaN Product\\CGHV1F006S"
+        replace_element(test_app, test_schematic, test_target, test_map, library_path=lib_path)
+
+        # Scenario B: Name-based (libraryless) replacement
+        # Note: CFH1 must exist again for this second test or use another designator
+        # LOGGER.info("Testing Scenario B: Element Name")
+        # replace_element(test_app, test_schematic, "RES1", test_map, element_name="RES")
+
     except Exception as ex:
         LOGGER.critical(f"└── Test execution failed: {ex}")
         sys.exit(1)

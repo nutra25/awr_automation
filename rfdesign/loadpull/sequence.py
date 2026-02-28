@@ -2,13 +2,14 @@
 sequence.py
 Encapsulates the Load-Pull specific optimization sequence.
 Handles source/load iterations, wizard execution, and global maximum point selection.
-Operates entirely independently of global configurations via thorough dependency injection.
+Operates using strictly typed configuration objects via dependency injection.
 """
 
 from typing import Tuple, Dict, Any, List
 import objects
 from logger.logger import LOGGER
 from dataexporter.dataexporter import DataExporter
+from config import SequenceConfig
 
 # Import isolated utilities instead of defining them internally
 from rfdesign.loadpull.tuner_utils import PullType, build_tuner_params
@@ -17,25 +18,16 @@ from rfdesign.loadpull.tuner_utils import PullType, build_tuner_params
 class LoadPullSequence:
     """
     Executes the Load-Pull specific wizard operations and measurement extractions.
-    Completely decoupled from global project configurations.
+    Completely decoupled from global project configurations, utilizing SequenceConfig.
     """
 
-    def __init__(self, driver: Any, exporter: DataExporter, schematic_name: str,
-                 tuner_settings: Dict[str, Any], measurement_config: List[Dict[str, Any]],
-                 graph_name_pattern: str, point_selector: Any,
-                 iteration_count: int, radius_list: List[float]):
+    def __init__(self, driver: Any, exporter: DataExporter, config: SequenceConfig):
         """
-        Initializes the sequence with explicitly injected dependencies and settings.
+        Initializes the sequence with the strictly typed configuration branch.
         """
         self.driver = driver
         self.exporter = exporter
-        self.schematic_name = schematic_name
-        self.tuner_settings = tuner_settings
-        self.measurement_config = measurement_config
-        self.graph_name_pattern = graph_name_pattern
-        self.point_selector = point_selector
-        self.iteration_count = iteration_count
-        self.radius_list = radius_list
+        self.config = config
 
     def _run_iteration(self, iter_idx: int, pull_type: PullType,
                        radius: float, sweep_center: Tuple[float, float],
@@ -49,28 +41,31 @@ class LoadPullSequence:
         active_side = "SOURCE" if is_source else "LOAD"
         fixed_side = "LOAD" if is_source else "SOURCE"
 
-        # Use the injected tuner settings via the external utility function
-        active_params = build_tuner_params(self.tuner_settings, active_side, "calcMag(50,0,z0)", "calcAng(50,0,z0)", h_idx)
+        # Use the injected tuner settings from the configuration object
+        active_params = build_tuner_params(
+            self.config.tuner_settings, active_side, "calcMag(50,0,z0)", "calcAng(50,0,z0)", h_idx
+        )
 
         if isinstance(fixed_pos, (list, tuple)) and len(fixed_pos) >= 2:
-            fixed_params = build_tuner_params(self.tuner_settings, fixed_side, fixed_pos[0], fixed_pos[1], h_idx)
+            fixed_params = build_tuner_params(self.config.tuner_settings, fixed_side, fixed_pos[0], fixed_pos[1], h_idx)
             center_ang = sweep_center[1] if isinstance(sweep_center, (list, tuple)) and len(sweep_center) >= 2 else sweep_center
         else:
-            fixed_params = build_tuner_params(self.tuner_settings, fixed_side, fixed_pos, fixed_pos, h_idx)
+            fixed_params = build_tuner_params(self.config.tuner_settings, fixed_side, fixed_pos, fixed_pos, h_idx)
             center_ang = sweep_center
 
+        # FIXED: Accessed dataclass properties using dot notation instead of dictionary keys
         self.driver.circuit.configure_element(
-            self.schematic_name, self.tuner_settings["SOURCE"]["name"],
+            self.config.schematic_name, self.config.tuner_settings.source.name,
             active_params if is_source else fixed_params
         )
         self.driver.circuit.configure_element(
-            self.schematic_name, self.tuner_settings["LOAD"]["name"],
+            self.config.schematic_name, self.config.tuner_settings.load.name,
             fixed_params if is_source else active_params
         )
 
         wizard_opts = {
             "LP_MaxHarmonic": h_idx,
-            "LP_DataFileName": f"{active_side.lower()}_data_{iter_idx}",
+            "LP_DataFileName": f"{active_side.lower()}_pull_data_{iter_idx}",
             "LP_OverwriteDataFile": True,
             f"LP_Sweep_{active_side.capitalize()}{h_idx}": True,
             f"LP_Sweep_{fixed_side.capitalize()}{h_idx}": False,
@@ -82,9 +77,9 @@ class LoadPullSequence:
 
         self.driver.wizard.run_wizard(wizard_opts)
 
-        graph_name = self.graph_name_pattern.format(iter=iter_idx, type=active_side.lower())
+        graph_name = self.config.graph_name_pattern.format(iter=iter_idx, type=active_side.lower())
 
-        point, mag, ang = self.point_selector.select_point(
+        point, mag, ang = self.config.point_selector.select_point(
             self.driver,
             graph_name,
             exporter=self.exporter,
@@ -107,16 +102,16 @@ class LoadPullSequence:
         best_sp = next(res for res in results if res.iter_no == best_lp.iter_no and res.mode == "SP")
 
         self.driver.circuit.configure_element(
-            self.schematic_name, self.tuner_settings["SOURCE"]["name"],
-            build_tuner_params(self.tuner_settings, "SOURCE", best_sp.mag, best_sp.ang)
+            self.config.schematic_name, self.config.tuner_settings.source.name,
+            build_tuner_params(self.config.tuner_settings, "SOURCE", best_sp.mag, best_sp.ang)
         )
         self.driver.circuit.configure_element(
-            self.schematic_name, self.tuner_settings["LOAD"]["name"],
-            build_tuner_params(self.tuner_settings, "LOAD", best_lp.mag, best_lp.ang)
+            self.config.schematic_name, self.config.tuner_settings.load.name,
+            build_tuner_params(self.config.tuner_settings, "LOAD", best_lp.mag, best_lp.ang)
         )
 
         measured_data = {}
-        for m in self.measurement_config:
+        for m in self.config.measurement_config:
             data = self.driver.graph.get_marker_data(m["graph"], m["marker"], toggle_enable=True)
             val = str(data[m["index"]]) if len(data) > m["index"] else "NaN"
             measured_data[m["header"]] = val
@@ -134,11 +129,11 @@ class LoadPullSequence:
         current_results = []
         pos = {PullType.SOURCEPULL: (0.0, 0.0), PullType.LOADPULL: (0.0, 0.0)}
 
-        for i in range(self.iteration_count):
-            radius = float(self.radius_list[i])
+        for i in range(self.config.iteration_count):
+            radius = float(self.config.radius_list[i])
             iter_num = i + 1
 
-            LOGGER.info(f"│   ├── Iteration {iter_num}/{self.iteration_count} (Radius: {radius})")
+            LOGGER.info(f"│   ├── Iteration {iter_num}/{self.config.iteration_count} (Radius: {radius})")
 
             sp_res = self._run_iteration(
                 iter_num, PullType.SOURCEPULL, radius,
@@ -162,3 +157,37 @@ class LoadPullSequence:
         measured_data, tuner_data = self._finalize_state(current_results)
 
         return measured_data, current_results, tuner_data
+
+
+if __name__ == "__main__":
+    import sys
+    LOGGER.info("├── Starting standalone test sequence for sequence.py")
+    try:
+        from rfdesign.loadpull.tuner_utils import TunerConfig, TunerSideConfig
+
+        class DummySelector:
+            def select_point(self, driver, graph, exporter, export_subpath):
+                return "10.0", "0.5", "45.0"
+
+        dummy_tuner_config = TunerConfig(
+            source=TunerSideConfig(name="S", prefix_mag="M", prefix_ang="A"),
+            load=TunerSideConfig(name="L", prefix_mag="M", prefix_ang="A")
+        )
+
+        dummy_config = SequenceConfig(
+            schematic_name="Test_Schematic",
+            tuner_settings=dummy_tuner_config,
+            measurement_config=[],
+            graph_name_pattern="test_{iter}_{type}",
+            point_selector=DummySelector(),
+            iteration_count=1,
+            radius_list=("0.99",)
+        )
+
+        seq = LoadPullSequence(driver=None, exporter=None, config=dummy_config)
+        LOGGER.info(f"│   ├── Sequence Config Schematic: {seq.config.schematic_name}")
+        LOGGER.info(f"│   ├── Tuner Source Name: {seq.config.tuner_settings.source.name}")
+        LOGGER.info("└── Test execution sequence completed successfully")
+    except Exception as ex:
+        LOGGER.critical(f"└── Test execution failed: {ex}")
+        sys.exit(1)

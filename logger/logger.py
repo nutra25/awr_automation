@@ -1,8 +1,8 @@
 """
 logger.py
 Provides a highly modular, dynamic color-assigning logger that enforces
-a tree-branch structure for all logging activities across any project.
-Integrates with the central configuration to store logs in run-specific directories.
+a tree-branch structure for all logging activities across the project.
+Operates via a dedicated configuration object for strict dependency management.
 """
 
 import logging
@@ -10,9 +10,21 @@ import sys
 import os
 import hashlib
 from datetime import datetime
+from dataclasses import dataclass
 
-# Import the dynamic log directory generated for the current simulation run
-from paths import LOGS_DIR
+# Import the default path configuration for global fallback initialization
+from paths import default_paths
+
+
+@dataclass
+class LoggerConfig:
+    """
+    Configuration node for the logging infrastructure.
+    """
+    log_dir: str
+    log_name: str = "simulation.log"
+    use_colors: bool = True
+
 
 class LogColors:
     """
@@ -24,7 +36,6 @@ class LogColors:
     B_YELLOW = "\033[0;93m"
     B_WHITE = "\033[0;97m"
 
-    # A palette of distinct colors for dynamic assignment
     DYNAMIC_PALETTE = [
         "\033[0;92m",  # B_GREEN
         "\033[0;94m",  # B_BLUE
@@ -35,6 +46,7 @@ class LogColors:
         "\033[38;2;255;165;0m",   # ORANGE
         "\033[38;2;0;250;154m"    # MEDIUM_SPRING_GREEN
     ]
+
 
 class ProfessionalFormatter(logging.Formatter):
     """
@@ -49,10 +61,9 @@ class ProfessionalFormatter(logging.Formatter):
         logging.CRITICAL: "\033[1;31m",
     }
 
-    # Increased to 45 to accommodate exceptionally long filenames without breaking alignment
     FILE_COLUMN_WIDTH = 45
 
-    def __init__(self, use_colors=True):
+    def __init__(self, use_colors: bool = True):
         super().__init__()
         self.use_colors = use_colors
         self._color_cache = {}
@@ -67,7 +78,7 @@ class ProfessionalFormatter(logging.Formatter):
             self._color_cache[filename] = LogColors.DYNAMIC_PALETTE[color_index]
         return self._color_cache[filename]
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         msg = record.getMessage().rstrip()
 
         # Handle multi-line messages while preserving the tree-branch structure
@@ -97,18 +108,18 @@ class ProfessionalFormatter(logging.Formatter):
         else:
             return f"{time_str} | {record.filename:<{self.FILE_COLUMN_WIDTH}} | {record.levelname:<8} | {msg}"
 
-def setup_universal_logger(log_dir: str = LOGS_DIR, log_name: str = "simulation.log") -> logging.Logger:
+
+def setup_universal_logger(config: LoggerConfig) -> logging.Logger:
     """
-    Initializes and configures the universal logger, targeting the dynamic run directory.
+    Initializes and configures the universal logger, targeting the explicitly defined configuration parameters.
     """
     logger = logging.getLogger("awr_automation")
     logger.setLevel(logging.DEBUG)
     logger.propagate = False
 
     if not logger.hasHandlers():
-        # Ensure the target directory exists before attempting to create the file
-        os.makedirs(log_dir, exist_ok=True)
-        log_filepath = os.path.join(log_dir, log_name)
+        os.makedirs(config.log_dir, exist_ok=True)
+        log_filepath = os.path.join(config.log_dir, config.log_name)
 
         with open(log_filepath, "w", encoding="utf-8") as f:
             f.write(f"LOG SESSION INITIALIZED: {datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
@@ -116,7 +127,7 @@ def setup_universal_logger(log_dir: str = LOGS_DIR, log_name: str = "simulation.
 
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(logging.DEBUG)
-        console_handler.setFormatter(ProfessionalFormatter(use_colors=True))
+        console_handler.setFormatter(ProfessionalFormatter(use_colors=config.use_colors))
 
         file_handler = logging.FileHandler(log_filepath, mode='a', encoding='utf-8')
         file_handler.setLevel(logging.INFO)
@@ -127,5 +138,22 @@ def setup_universal_logger(log_dir: str = LOGS_DIR, log_name: str = "simulation.
 
     return logger
 
-# Global instance for easy import across the project
-LOGGER = setup_universal_logger()
+
+# Global instance fallback to maintain compatibility with legacy imports
+# that expect a pre-configured logger without explicit dependency injection.
+_default_logger_config = LoggerConfig(log_dir=default_paths.logs_dir)
+LOGGER = setup_universal_logger(_default_logger_config)
+
+
+if __name__ == "__main__":
+    import sys
+    print("├── Starting standalone test sequence for logger.py")
+    try:
+        test_cfg = LoggerConfig(log_dir="./test_logs")
+        test_logger = setup_universal_logger(test_cfg)
+        test_logger.info("│   ├── Diagnostic test message: Information level.")
+        test_logger.warning("│   ├── Diagnostic test message: Warning level.")
+        print("└── Test execution sequence completed successfully")
+    except Exception as ex:
+        print(f"└── Test execution failed: {ex}")
+        sys.exit(1)

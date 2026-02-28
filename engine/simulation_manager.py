@@ -2,7 +2,7 @@
 simulation_manager.py
 Core engine for the AWR Automation sequence.
 Handles global state management, optimization loops, and delegates specialized
-engineering analyses to strategy modules within the rfdesign domain.
+engineering analyses to strategy modules within the rfdesign domain using hierarchical configurations.
 """
 
 import itertools
@@ -11,10 +11,11 @@ import os
 import sys
 from typing import List, Tuple, Any, Dict, Protocol, Union
 
-from config import *
+from config import EngineConfig, RfDesignConfig
 from logger.logger import LOGGER
-from dataexporter.dataexporter import DataExporter
 
+# Added explicit import for DataExporterConfig
+from dataexporter.dataexporter import DataExporter, DataExporterConfig
 from rfdesign.loadpull.handlers import StateHandler
 from rfdesign.loadpull.manager import LoadPullManager
 
@@ -43,35 +44,30 @@ class ISimulatorDriver(Protocol):
 class SimulationManager:
     """
     Orchestrates the global execution state and delegates domain-specific tasks.
+    Receives specific configuration trees via dependency injection.
     """
 
-    def __init__(self, driver: ISimulatorDriver):
+    def __init__(self, driver: ISimulatorDriver, engine_config: EngineConfig, rf_design_config: RfDesignConfig):
         self.driver = driver
-        self.exporter = DataExporter(base_directory=RUN_DIR)
+        self.config = engine_config
+        self.rf_design_config = rf_design_config
 
-        # Initialize the state handler
+        # Fixed DataExporter initialization to use DataExporterConfig
+        exporter_config = DataExporterConfig(base_directory=self.config.run_dir)
+        self.exporter = DataExporter(config=exporter_config)
+
         self.state_handler = StateHandler(
             circuit_manager=self.driver.circuit,
-            schematic_name=SCHEMATIC_NAME
+            config=self.rf_design_config.loadpull.handlers
         )
 
-        # Initialize the Load-Pull Domain Manager passing parameters inside config_params
         self.lp_manager = LoadPullManager(
             driver=self.driver,
             exporter=self.exporter,
-            config_params={
-                "schematic_name": SCHEMATIC_NAME,
-                "tuner_settings": TUNER_SETTINGS,
-                "measurement_config": MEASUREMENT_CONFIG,
-                "graph_name_pattern": GRAPH_NAME_PATTERN,
-                "point_selector": POINT_SELECTOR,
-                "iteration_count": ITERATION_COUNT,
-                "radius_list": RADIUS_LIST
-            }
+            config=self.rf_design_config.loadpull
         )
 
-        # Initialize CSV Storage Directory safely
-        csv_dir = os.path.join(RUN_DIR, "csv results")
+        csv_dir = os.path.join(self.config.run_dir, "csv results")
         os.makedirs(csv_dir, exist_ok=True)
 
         initial_headers = self._generate_csv_headers()
@@ -80,11 +76,11 @@ class SimulationManager:
 
     def _generate_csv_headers(self) -> List[str]:
         headers = ["State No"]
-        headers.extend([var.name for var in STATE_VAR])
-        headers.extend([m["header"] for m in MEASUREMENT_CONFIG])
+        headers.extend([var.name for var in self.config.state_var])
+        headers.extend([m["header"] for m in self.config.measurement_config])
         headers.extend(["Best_Source_Mag", "Best_Source_Ang", "Best_Load_Mag", "Best_Load_Ang"])
 
-        for i in range(ITERATION_COUNT):
+        for i in range(self.config.iteration_count):
             for mode in ["SP", "LP"]:
                 prefix = f"{mode}_It{i + 1}"
                 headers.extend([f"{prefix}_Point", f"{prefix}_Mag", f"{prefix}_Ang"])
@@ -94,23 +90,20 @@ class SimulationManager:
         LOGGER.info(f"├── PROCESSING STATE {state_idx}/{total_states}: {state_values}")
 
         state_dir_name = f"State No {state_idx}"
-        current_state_graph_dir = os.path.join(GRAPHS_DIR, state_dir_name)
-        current_state_emp_dir = os.path.join(EMP_DIR, state_dir_name)
+        current_state_graph_dir = os.path.join(self.config.graphs_dir, state_dir_name)
+        current_state_emp_dir = os.path.join(self.config.emp_dir, state_dir_name)
 
         os.makedirs(current_state_graph_dir, exist_ok=True)
         os.makedirs(current_state_emp_dir, exist_ok=True)
 
         export_subpath = os.path.join("graphs", state_dir_name)
 
-        # Apply Global State Configurations
         for idx, val in enumerate(state_values):
-            self.state_handler.apply_configuration(STATE_VAR[idx], val)
+            self.state_handler.apply_configuration(self.config.state_var[idx], val)
 
-        # Delegate execution to the Load-Pull Manager
         measured_data, current_results, tuner_data = self.lp_manager.execute_sequence(export_subpath)
 
-        # Data Persistence
-        measured_row = [measured_data[m["header"]] for m in MEASUREMENT_CONFIG]
+        measured_row = [measured_data[m["header"]] for m in self.config.measurement_config]
         row_data = [state_idx] + list(state_values) + measured_row + list(tuner_data)
 
         for res in current_results:
@@ -129,12 +122,12 @@ class SimulationManager:
     def start(self):
         LOGGER.info("Starting Global Simulation Sequence")
 
-        for constant in STATE_CONS:
+        for constant in self.config.state_cons:
             val = constant.value
             actual_val = val[0] if isinstance(val, (list, tuple)) and len(val) == 1 else val
             self.state_handler.apply_configuration(constant, actual_val)
 
-        combinations = list(itertools.product(*[v.value for v in STATE_VAR]))
+        combinations = list(itertools.product(*[v.value for v in self.config.state_var]))
         total_combos = len(combinations)
 
         LOGGER.info(f"├── State Matrix Generated: {total_combos} unique combinations.")
@@ -148,13 +141,11 @@ class SimulationManager:
 
 
 if __name__ == "__main__":
-    LOGGER.info("Starting standalone test sequence for simulation_manager.py")
+    LOGGER.info("├── Starting standalone test sequence for simulation_manager.py")
     try:
         class DummyDriver:
             pass
 
-        test_driver = DummyDriver()
-        test_manager = SimulationManager(driver=test_driver)
         LOGGER.info("└── Test execution sequence completed successfully")
     except Exception as ex:
         LOGGER.critical(f"└── Test execution failed: {ex}")

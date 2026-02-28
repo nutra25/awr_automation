@@ -110,7 +110,7 @@ if __name__ == "__main__":
             LOGGER.warning("│   └── Test 1 Failed or Element not found.")
 
         # Test Case 2: Partial Match (Bulk)
-        partial_target = "PORT"
+        partial_target = "PORT_PS1"
         LOGGER.info(f"├── Test Case 2: Partial Match Mode (e.g., finding all Resistors '{partial_target}')")
         partial_results = find_schematic_element(test_app, test_schematic, partial_target, allow_partial_match=True)
 

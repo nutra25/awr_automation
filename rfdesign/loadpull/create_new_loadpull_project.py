@@ -69,24 +69,37 @@ def create_loadpull_project(driver: AWRDriver, config: Dict[str, Any]) -> bool:
             LOGGER.error("│   └── Sequence aborted: Element replacement failed.")
             return False
 
+        # Replace the input port element
+        LOGGER.info(f"│   ├── Step 3: Replacing element PORT_PS1.1 and applying routing matrix...")
+        replacement_success = driver.circuit.replace_element(
+            schematic_name=schematic_name,
+            target="PORT_PS1.P1",
+            element_name="PORT1",
+            mapping=node_mapping
+        )
+
+        if not replacement_success:
+            LOGGER.error("│   └── Sequence aborted: Element replacement failed.")
+            return False
+
         # 4. Generate the required Data Files, Graphs, and Measurements (Iteration * 2)
         LOGGER.info(f"│   ├── Step 4: Generating operational infrastructure for {iterations} iterations...")
 
         for i in range(1, iterations + 1):
             # Iterate twice per iteration number (Once for Source Pull, Once for Load Pull)
             for pull_mode in ["source", "load"]:
-                prefix = pull_mode.capitalize()
+                prefix = pull_mode
 
                 # Dynamic Naming Convention
                 df_name = f"{pull_mode}_pull_data_{i}"
-                graph_name = f"{prefix} Pull Graph It{i}"
+                graph_name = f"it{i}_{prefix}_pull"
                 source_doc = df_name  # The data file acts as the source document for the measurement
                 meas_expr = "G_LPCM(PAE,0.5,12,50,0)[1,*]"  # Placeholder for the actual AWR measurement expression
 
-                LOGGER.debug(f"│   │   ├── Setting up infrastructure for Iteration {i} ({prefix} Pull)")
+                LOGGER.debug(f"│   │   ├── Setting up infrastructure for Iteration {i} ({prefix.capitalize()} Pull)")
 
                 # 4.1. Add New Data File
-                driver.data_file.add_new(file_name=df_name, file_type=DataFileType.GMDIF)
+                driver.data_file.add_new(file_name=df_name, file_type=DataFileType.GMDIFD)
 
                 # 4.2. Add New Graph
                 driver.graph.add_new_graph(graph_name=graph_name, graph_type=GraphType.SMITH_CHART)
@@ -94,7 +107,13 @@ def create_loadpull_project(driver: AWRDriver, config: Dict[str, Any]) -> bool:
                 # 4.3. Add Measurement to the Graph
                 driver.graph.add_measurement(graph_name=graph_name, source_name=source_doc, measurement_expression=meas_expr)
 
+        driver.graph.add_new_graph(graph_name="Results", graph_type=GraphType.RECTANGULAR)
+
+        driver.graph.add_measurement(graph_name="Results", source_name=f"{schematic_name}.AP_HB", measurement_expression="PAE(PORT_1,PORT_2)")
+        driver.graph.add_measurement(graph_name="Results", source_name=f"{schematic_name}.AP_HB", measurement_expression="DB(PT(PORT_2))")
+
         LOGGER.info("└── Load-Pull Project Creation Sequence Finalized Successfully.")
+        driver.project.save_current_project_as(save_path= r"C:\Users\aliutkay\OneDrive\Masaüstü\test\loadpull.emp")
         return True
 
     except Exception as e:

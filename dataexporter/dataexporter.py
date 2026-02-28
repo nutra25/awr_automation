@@ -1,30 +1,40 @@
 """
-data_exporter.py
+dataexporter.py
 A highly decoupled, comprehensive data export module capable of saving
 various data formats (CSV, JSON, HTML, Binary/Images) to persistent storage.
+Utilizes an embedded configuration class for self-contained dependency injection.
 Strictly adheres to the tree-branch logging structure.
 """
 
 import csv
 import os
 import json
+from dataclasses import dataclass
 from typing import List, Dict, Any
 
-# Importer targets the universal logger configuration
 from logger.logger import LOGGER
+
+
+@dataclass
+class DataExporterConfig:
+    """
+    Configuration node for the DataExporter module.
+    """
+    base_directory: str
+
 
 class DataExporter:
     """
     Manages generic data persistence across multiple formats within a specified
-    base directory, completely decoupled from specific domain logic.
+    base directory, operating via a self-contained configuration object.
     """
 
-    def __init__(self, base_directory: str):
+    def __init__(self, config: DataExporterConfig):
         """
-        Initializes the exporter with a target directory.
+        Initializes the exporter with its specific configuration branch.
         """
-        self.base_directory = base_directory
-        self._ensure_directory(self.base_directory)
+        self.config = config
+        self._ensure_directory(self.config.base_directory)
 
     def _ensure_directory(self, path: str) -> None:
         """
@@ -38,7 +48,7 @@ class DataExporter:
         """
         Constructs and returns the absolute file path for a given filename.
         """
-        return os.path.join(self.base_directory, filename)
+        return os.path.join(self.config.base_directory, filename)
 
     def initialize_csv(self, filename: str, headers: List[str]) -> bool:
         """
@@ -116,9 +126,22 @@ class DataExporter:
 
     def resolve_external_path(self, filename: str) -> str:
         """
-        Returns the absolute path for external tools (e.g., AWR COM objects)
-        to save files directly, while tracking the action in the logs.
+        Returns the absolute path for external tools to save files directly,
+        while tracking the action in the logs.
         """
         filepath = os.path.abspath(self._get_filepath(filename))
         LOGGER.debug(f"├── Resolved external export path: {filepath}")
         return filepath
+
+
+if __name__ == "__main__":
+    import sys
+    LOGGER.info("├── Starting standalone test sequence for dataexporter.py")
+    try:
+        test_config = DataExporterConfig(base_directory="./test_export_dir")
+        exporter = DataExporter(config=test_config)
+        LOGGER.info(f"│   ├── Exporter configured with base directory: {exporter.config.base_directory}")
+        LOGGER.info("└── Test execution sequence completed successfully")
+    except Exception as ex:
+        LOGGER.critical(f"└── Test execution failed: {ex}")
+        sys.exit(1)

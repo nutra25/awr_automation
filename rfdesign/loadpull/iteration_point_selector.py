@@ -1,8 +1,8 @@
 """
-lp_iteration_point_selector.py
+iteration_point_selector.py
 Defines strategies for selecting the optimal point from load-pull contours.
 Delegates all persistent storage operations strictly to the central DataExporter.
-Employs the composition-based driver architecture for data retrieval.
+Utilizes embedded configuration nodes for strategy parameters.
 """
 
 import os
@@ -10,6 +10,7 @@ import io
 import math
 from abc import ABC, abstractmethod
 from typing import Tuple, Any, Dict, List, Optional
+from dataclasses import dataclass
 import numpy as np
 import plotly.graph_objects as go
 import plotly.colors as pc
@@ -18,14 +19,26 @@ from shapely.ops import unary_union
 import matplotlib.pyplot as plt
 import skrf as rf
 
-# Logger module integration
 from logger.logger import LOGGER
+
+
+@dataclass
+class PointSelectorConfig:
+    """
+    Configuration node containing parameters for all selection strategies.
+    """
+    marker1_name: str = "m1"
+    marker2_name: str = "m2"
+    tradeoff_weight: float = 0.5
+    show_plot: bool = True
 
 
 class BasePointSelector(ABC):
     """
     Abstract base class defining the required interface for point selection strategies.
     """
+    def __init__(self, config: PointSelectorConfig):
+        self.config = config
 
     @abstractmethod
     def select_point(self, driver: Any, graph_name: str, exporter: Any = None, export_subpath: str = "") -> Tuple[str, str, str]:
@@ -37,14 +50,10 @@ class MaxMarkerSelector(BasePointSelector):
     Selection strategy that targets the precise location of a predefined marker.
     """
 
-    def __init__(self, marker_name: str = "m1"):
-        self.marker_name = marker_name
-
     def select_point(self, driver: Any, graph_name: str, exporter: Any = None, export_subpath: str = "") -> Tuple[str, str, str]:
         LOGGER.info(f"Initiating MaxMarkerSelector for graph: {graph_name}")
 
-        # Delegated graph operations to the graph manager
-        data = driver.graph.get_marker_data(graph_name, self.marker_name)
+        data = driver.graph.get_marker_data(graph_name, self.config.marker1_name)
 
         if not data:
             LOGGER.warning("└── Failed to retrieve valid marker data. Returning default fallback values.")
@@ -59,24 +68,18 @@ class TradeOffSelector(BasePointSelector):
     Selection strategy that calculates a weighted central point between two distinct markers.
     """
 
-    def __init__(self, marker1: str = "m1", marker2: str = "m2", weight: float = 0.5):
-        self.m1 = marker1
-        self.m2 = marker2
-        self.weight = weight
-
     def select_point(self, driver: Any, graph_name: str, exporter: Any = None, export_subpath: str = "") -> Tuple[str, str, str]:
-        LOGGER.info(f"Initiating TradeOffSelector between markers '{self.m1}' and '{self.m2}'")
+        LOGGER.info(f"Initiating TradeOffSelector between markers '{self.config.marker1_name}' and '{self.config.marker2_name}'")
 
-        # Delegated graph operations to the graph manager
-        d1 = driver.graph.get_marker_data(graph_name, self.m1)
-        d2 = driver.graph.get_marker_data(graph_name, self.m2)
+        d1 = driver.graph.get_marker_data(graph_name, self.config.marker1_name)
+        d2 = driver.graph.get_marker_data(graph_name, self.config.marker2_name)
 
         if not d1 or not d2:
             LOGGER.warning("└── Incomplete marker data retrieved. Returning default fallback values.")
             return "0", "0", "0"
 
-        w1 = self.weight
-        w2 = 1.0 - self.weight
+        w1 = self.config.tradeoff_weight
+        w2 = 1.0 - self.config.tradeoff_weight
 
         avg_mag = (d1[1] * w1) + (d2[1] * w2)
         avg_ang = (d1[2] * w1) + (d2[2] * w2)
@@ -90,9 +93,6 @@ class BroadbandOptimumSelector(BasePointSelector):
     """
     Advanced selection strategy to identify a generalized intersection area across multiple frequencies.
     """
-
-    def __init__(self, show_plot: bool = True):
-        self.show_plot = show_plot
 
     def select_point(self, driver: Any, graph_name: str, exporter: Any = None, export_subpath: str = "") -> Tuple[str, str, str]:
         LOGGER.info(f"Initiating BroadbandOptimumSelector for graph: {graph_name}")
@@ -128,10 +128,10 @@ class BroadbandOptimumSelector(BasePointSelector):
             LOGGER.info(f"├── Optimal intersection identified with worst-case PAE threshold: {worst_case_pae}")
             LOGGER.info(f"├── Target centroid calculated at Magnitude={mag:.4f}, Angle={ang:.2f}°")
 
-            if self.show_plot and exporter:
+            if self.config.show_plot and exporter:
                 self._generate_plot(graph_name, freqs, num_freqs, freq_geoms, best_state, geoms_to_plot, cx, cy, exporter, export_subpath)
                 self._generate_plot_3d_plotly(graph_name, freqs, num_freqs, freq_geoms, best_state, geoms_to_plot, cx, cy, exporter, export_subpath)
-            elif self.show_plot and not exporter:
+            elif self.config.show_plot and not exporter:
                 LOGGER.warning("└── Visualization is enabled, but no DataExporter was provided. Skipping plot generation.")
             else:
                 LOGGER.info("└── Visualization is disabled; skipping plot generation.")
@@ -144,7 +144,6 @@ class BroadbandOptimumSelector(BasePointSelector):
     def _fetch_and_process_contours(self, driver: Any, graph_name: str) -> Tuple[Dict, List[float], int]:
         LOGGER.info("├── Retrieving broadband contour datasets from the application environment")
 
-        # Delegated graph operations to the graph manager
         data_by_freq = driver.graph.get_broadband_contours(graph_name)
 
         if not data_by_freq:
@@ -186,8 +185,6 @@ class BroadbandOptimumSelector(BasePointSelector):
         valid_freqs = [f for f in freqs if f in freq_geoms]
         return freq_geoms, valid_freqs, len(valid_freqs)
 
-    # ( _find_best_intersection, _generate_plot ve _generate_plot_3d_plotly metodlarının içerikleri aynı kalır,
-    #   yalnızca mimari çağrılar güncellenmiştir. )
     def _find_best_intersection(self, freq_geoms: Dict, freqs: List[float], num_freqs: int) -> Tuple[Any, Optional[List[int]], float]:
         state = [0] * num_freqs
         best_state = None
@@ -549,3 +546,16 @@ class BroadbandOptimumSelector(BasePointSelector):
             exporter.save_text(filename, html_content)
         except Exception as e:
             LOGGER.error(f"└── Encountered an error during 3D HTML text serialization: {e}")
+
+
+if __name__ == "__main__":
+    import sys
+    LOGGER.info("├── Starting standalone test sequence for iteration_point_selector.py")
+    try:
+        test_config = PointSelectorConfig(marker1_name="m3", show_plot=False)
+        selector = MaxMarkerSelector(config=test_config)
+        LOGGER.info(f"│   ├── Selector configured to target marker: {selector.config.marker1_name}")
+        LOGGER.info("└── Test execution sequence completed successfully")
+    except Exception as ex:
+        LOGGER.critical(f"└── Test execution failed: {ex}")
+        sys.exit(1)
