@@ -1,13 +1,18 @@
 """
 manager.py (Graph Domain)
 Handles all API interactions concerning graphing, data extraction,
-and marker operations.
+marker operations, and graph creation.
 """
 
 import re
 from typing import List, Dict, Any
+
 from awr.graph.awr_get_marker_value import get_marker_value
 from awr.graph.awr_get_broadband_contours import extract_graph_data
+
+# Import the new graph creation module and its specific GraphType enum
+from awr.graph.new_graph import create_new_graph, GraphType
+
 
 class GraphManager:
     """
@@ -15,6 +20,12 @@ class GraphManager:
     """
     def __init__(self, app):
         self.app = app
+
+    def add_new_graph(self, graph_name: str, graph_type: GraphType) -> bool:
+        """
+        Creates a new graph in the project. Requires a GraphType enum for type safety.
+        """
+        return create_new_graph(self.app, graph_name, graph_type)
 
     def get_marker_data(self, graph: str, marker: str, toggle_enable: bool = False) -> List[float]:
         """

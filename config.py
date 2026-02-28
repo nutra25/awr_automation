@@ -1,25 +1,6 @@
 import os
 from datetime import datetime
-
-
-##################################################
-# PATH MANAGEMENT INITIALIZATION
-AWR_PATH = r"C:\Program Files (x86)\AWR\AWRDE\19\MWOffice.exe"
-PROJECT_TEMPLATE_PATH = r"C:\Users\Public\Documents\AWR Projects\loadpull.emp"
-
-TIMESTAMP = datetime.now().strftime("%y.%m.%d-%H.%M.%S")
-RUN_DIR = os.path.join("outputs", f"RUN {TIMESTAMP}")
-
-CSV_DIR = os.path.join(RUN_DIR, "csv results")
-LOGS_DIR = os.path.join(RUN_DIR, "logs")
-GRAPHS_DIR = os.path.join(RUN_DIR, "graphs")
-EMP_DIR = os.path.join(RUN_DIR, "EMP Files")
-
-os.makedirs(CSV_DIR, exist_ok=True)
-os.makedirs(LOGS_DIR, exist_ok=True)
-os.makedirs(GRAPHS_DIR, exist_ok=True)
-os.makedirs(EMP_DIR, exist_ok=True)
-##################################################
+from paths import *
 
 import objects
 from objects import generate_sweep_values

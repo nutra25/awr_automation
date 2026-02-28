@@ -12,7 +12,7 @@ import hashlib
 from datetime import datetime
 
 # Import the dynamic log directory generated for the current simulation run
-from config import LOGS_DIR
+from paths import LOGS_DIR
 
 class LogColors:
     """
