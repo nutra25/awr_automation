@@ -11,6 +11,7 @@ from awr.graph.get_marker_value import get_marker_value
 from awr.graph.get_broadband_contours import extract_graph_data
 from awr.graph.new_graph import create_new_graph, GraphType
 from awr.graph.add_measurements import add_measurement_to_graph
+from awr.graph.add_marker import add_marker
 
 
 class GraphManager:
@@ -49,3 +50,8 @@ class GraphManager:
     def get_broadband_contours(self, graph_name: str) -> Dict[float, List[Dict[str, Any]]]:
         """Extracts broadband contour datasets from the specified graph."""
         return extract_graph_data(self.app, graph_name)
+
+    def add_marker(self, graph_name: str, measurement_index: int, x_point: float, data_index: int = 1,
+                   trace_index: int = None):
+        """Delegates marker attachment to the atomic add_marker module."""
+        return add_marker(self.app, graph_name, measurement_index, x_point, data_index, trace_index)
