@@ -17,6 +17,9 @@ from awr.circuit_schematic.manager import CircuitSchematicManager
 from awr.graph.manager import GraphManager
 from awr.wizard.manager import WizardManager
 
+# Integration of the new Data File Domain
+from awr.data_file.manager import DataFileManager
+
 
 class AWRDriver:
     """
@@ -36,6 +39,8 @@ class AWRDriver:
         self.circuit = CircuitSchematicManager(self.app)
         self.graph = GraphManager(self.app)
         self.wizard = WizardManager(self.app)
+        self.data_file = DataFileManager(self.app)
+
         LOGGER.info("└── Domain managers successfully initialized.")
 
     def _initialize_application(self, exe_path: str, timeout: int = 60):
@@ -43,13 +48,17 @@ class AWRDriver:
         Robust connection logic featuring auto-launch capabilities and a controlled timeout loop.
         """
         LOGGER.info("├── Initializing AWR Microwave Office Application...")
+
+        # NOTE: Existing session attachment block is currently commented out in your version.
+        # Uncommenting this block is recommended if you wish to attach to an already running instance.
         """
         try:
             app = mwoffice.CMWOffice()
             LOGGER.info("└── Successfully connected to active session.")
             return app
         except Exception:
-            LOGGER.debug("├── No active session found.")"""
+            LOGGER.debug("├── No active session found.")
+        """
 
         if exe_path:
             if os.path.exists(exe_path):

@@ -1,5 +1,5 @@
 """
-awr_configure_schematic_element.py
+configure_schematic_element.py
 Provides functionality to configure specific parameters of a target element.
 Delegates the search logic to the isolated find_element module to comply with SRP.
 Strictly adheres to the tree-branch logging hierarchy.
@@ -79,7 +79,7 @@ def configure_schematic_element(
 
 # Standalone Test Execution Block
 if __name__ == "__main__":
-    LOGGER.info("Starting standalone test sequence for awr_configure_schematic_element.py module.")
+    LOGGER.info("Starting standalone test sequence for configure_schematic_element.py module.")
 
     try:
         # Attempt to establish a connection with an active AWR instance

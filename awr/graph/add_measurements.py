@@ -57,7 +57,7 @@ if __name__ == "__main__":
         # NOTE: For a completely successful test, a graph named "Automated Test Rectangular"
         # and a schematic named "TestSchematic" must already exist in the active AWR project.
         test_target_graph = "Graph 1"
-        test_source_doc = "load_data_1"
+        test_source_doc = "Data File 1"
         test_meas_expr = "G_LPCM(PAE,0.5,12,50,0)[1,*]"
 
         # Execute the function
