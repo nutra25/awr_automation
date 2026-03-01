@@ -7,7 +7,7 @@ Operates using strictly typed configuration objects via dependency injection.
 
 from typing import Tuple, Dict, Any, List
 from dataclasses import dataclass
-import objects
+from rfdesign.loadpull.models import PullResult
 from logger.logger import LOGGER
 from dataexporter.dataexporter import DataExporter
 from rfdesign.loadpull.tuner_utils import PullType, build_tuner_params, TunerConfig
@@ -28,7 +28,7 @@ class SequenceConfig:
     schematic_name: str
     tuner_settings: TunerConfig
     wizard_settings: WizardSettingsConfig
-    measurement_config: List[Dict[str, str]]
+    measurement_config: List[Dict[str, Any]]
     graph_name_pattern: str
     point_selector: Any
     iteration_count: int
@@ -71,7 +71,7 @@ class LoadPullSequence:
 
     def _run_iteration(self, iter_idx: int, pull_type: PullType,
                        radius: float, sweep_center: Tuple[float, float],
-                       fixed_pos: Tuple[float, float], export_subpath: str) -> objects.PullResult:
+                       fixed_pos: Tuple[float, float], export_subpath: str) -> PullResult:
 
         is_source = (pull_type == PullType.SOURCEPULL)
         h_idx = self.config.wizard_settings.max_harmonic
@@ -123,7 +123,7 @@ class LoadPullSequence:
             export_subpath=export_subpath
         )
 
-        return objects.PullResult(
+        return PullResult(
             iter_no=iter_idx,
             mode=mode_prefix,
             point=point,
@@ -131,7 +131,7 @@ class LoadPullSequence:
             ang=float(ang)
         )
 
-    def _finalize_state(self, results: List[objects.PullResult]) -> Tuple[Dict, Tuple]:
+    def _finalize_state(self, results: List[PullResult]) -> Tuple[Dict, Tuple]:
         best_lp = max((x for x in results if x.mode == self.config.load_pull_prefix), key=lambda x: float(x.point))
         best_sp = next(res for res in results if res.iter_no == best_lp.iter_no and res.mode == self.config.source_pull_prefix)
 
@@ -150,7 +150,8 @@ class LoadPullSequence:
             self.driver.graph.move_marker(graph_name=m["graph"], marker_name=m["marker"], action="MIN", perform_simulation=True)
             data = self.driver.graph.get_marker_data(m["graph"], m["marker"], toggle_enable=False)
             self.driver.graph.toggle_measurements(m["graph"], enable=False)
-            val = str(data[m["index"]]) if len(data) > m["index"] else "NaN"
+            idx = int(m["index"])
+            val = str(data[idx]) if len(data) > idx else "NaN"
             measured_data[m["header"]] = val
 
         tuner_data = (str(best_sp.mag), str(best_sp.ang),
@@ -158,7 +159,7 @@ class LoadPullSequence:
 
         return measured_data, tuner_data
 
-    def execute(self, export_subpath: str) -> Tuple[Dict, List[objects.PullResult], Tuple]:
+    def execute(self, export_subpath: str) -> Tuple[Dict, List[PullResult], Tuple]:
         current_results = []
         pos = {PullType.SOURCEPULL: (0.0, 0.0), PullType.LOADPULL: (0.0, 0.0)}
 

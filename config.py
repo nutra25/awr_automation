@@ -7,8 +7,8 @@ Fully integrated with domain-specific configuration objects imported directly fr
 from dataclasses import dataclass
 from typing import List, Dict, Any
 
-import objects
-from objects import generate_sweep_values
+from engine.models import State, StateType, Element
+from engine.utils import generate_sweep_values
 from paths import RUN_DIR, CSV_DIR, GRAPHS_DIR, EMP_DIR
 
 # Import encapsulated domain-specific configuration nodes
@@ -35,8 +35,8 @@ class RfDesignConfig:
 class EngineConfig:
     """Configuration node for the global simulation engine."""
     schematic_name: str
-    state_cons: List[objects.State]
-    state_var: List[objects.State]
+    state_cons: List[State]
+    state_var: List[State]
     measurement_config: List[Dict[str, Any]]
     iteration_count: int
     run_dir: str
@@ -79,27 +79,27 @@ app_config = AppConfig(
     engine=EngineConfig(
         schematic_name=_SCHEMATIC_NAME,
         state_cons=[
-            objects.State(
+            State(
                 name="Frekans (GHz)",
                 value=generate_sweep_values(12.7, 13.25, 0.05),
-                type=objects.StateType.RF_FREQUENCY,
+                type=StateType.RF_FREQUENCY,
             ),
-            objects.State(
+            State(
                 name="VDS",
                 value="40",
-                element=[objects.Element(name="DCVS.VDS", arg="V")]
+                element=[Element(name="DCVS.VDS", arg="V")]
             )
         ],
         state_var=[
-            objects.State(
+            State(
                 name="P_in (dBm)",
                 value="30",
-                element=[objects.Element(name="PORT1.P1", arg="Pwr")]
+                element=[Element(name="PORT1.P1", arg="Pwr")]
             ),
-            objects.State(
+            State(
                 name="VGS (V)",
                 value="-2.9",
-                element=[objects.Element(name="DCVS.VGS", arg="V")]
+                element=[Element(name="DCVS.VGS", arg="V")]
             )
         ],
         measurement_config=_MEASUREMENT_CONFIG,

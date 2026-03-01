@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from typing import List
 from dataclasses import dataclass
 from logger.logger import LOGGER
-import objects
+from rfdesign.loadpull.models import PullResult
 
 
 @dataclass
@@ -27,7 +27,7 @@ class BestResultStrategy(ABC):
         self.config = config
 
     @abstractmethod
-    def find_best(self, results: List['objects.PullResult']) -> 'objects.PullResult':
+    def find_best(self, results: List['PullResult']) -> 'PullResult':
         pass
 
 
@@ -36,7 +36,7 @@ class MaxPointStrategy(BestResultStrategy):
     Classic Method: Selects the result with the highest 'point' value.
     """
 
-    def find_best(self, results: List['objects.PullResult']) -> 'objects.PullResult':
+    def find_best(self, results: List['PullResult']) -> 'PullResult':
         LOGGER.info("Executing Strategy: MaxPointStrategy")
 
         if not results:
@@ -57,7 +57,7 @@ class TargetPointStrategy(BestResultStrategy):
     defined in the configuration structure.
     """
 
-    def find_best(self, results: List['objects.PullResult']) -> 'objects.PullResult':
+    def find_best(self, results: List['PullResult']) -> 'PullResult':
         target = self.config.target_value
         LOGGER.info(f"Executing Strategy: TargetPointStrategy (Target: {target})")
 
@@ -79,7 +79,7 @@ class LastIterationStrategy(BestResultStrategy):
     Iteration Priority Method: Always selects the result from the final iteration.
     """
 
-    def find_best(self, results: List['objects.PullResult']) -> 'objects.PullResult':
+    def find_best(self, results: List['PullResult']) -> 'PullResult':
         LOGGER.info("Executing Strategy: LastIterationStrategy")
 
         if not results:

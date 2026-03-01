@@ -7,7 +7,6 @@ Strictly adheres to the tree-branch logging hierarchy.
 
 from typing import Any
 from dataclasses import dataclass
-import objects
 from logger.logger import LOGGER
 
 
