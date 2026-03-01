@@ -4,27 +4,38 @@ Handles all API interactions concerning graphing, data extraction,
 marker operations, graph creation, and measurement additions.
 Strictly adheres to the professional coding standards.
 """
-
+import sys
 import re
 from typing import List, Dict, Any, Optional
 
-from awr.graph.get_marker_value import get_marker_value
 from awr.graph.get_broadband_contours import extract_graph_data
-from awr.graph.new_graph import create_new_graph, GraphType
-from awr.graph.add_measurements import add_measurement_to_graph
-from awr.graph.add_marker import add_and_move_marker
-from awr.graph.move_marker import move_marker
 from awr.graph.perform_simulation import perform_simulation
-from awr.graph.measurement_toggle import toggle_graph_measurements
+
+# Import the newly encapsulated domain service classes
+from awr.graph.graph import Graph, GraphType
+from awr.graph.marker import Marker
+from awr.graph.measurement import Measurement
 from logger.logger import LOGGER
 
 
 class GraphManager:
     """
     Manages AWR Graphic and Data Retrieval operations.
+    Acts as a facade utilizing specific domain sub-services (Graph, Marker, Measurement).
     """
     def __init__(self, app: Any):
+        """
+        Initializes the GraphManager and its underlying service objects.
+
+        Args:
+            app (Any): The active AWR MWOffice COM application instance.
+        """
         self.app = app
+
+        # Instantiate encapsulated domain services
+        self.graph_service = Graph(self.app)
+        self.marker_service = Marker(self.app)
+        self.measurement_service = Measurement(self.app)
 
     def perform_simulation(self) -> bool:
         """Explicitly triggers a simulation analysis."""
@@ -37,23 +48,22 @@ class GraphManager:
             return False
 
         graph = self.app.Project.Graphs(graph_name)
-        toggle_graph_measurements(graph, enable)
+        self.measurement_service.toggle_graph_measurements(graph, enable)
         return True
 
     def add_new_graph(self, graph_name: str, graph_type: GraphType) -> bool:
         """Creates a new graph in the project."""
-        return create_new_graph(self.app, graph_name, graph_type)
+        return self.graph_service.create_new_graph(graph_name, graph_type)
 
     def add_measurement(self, graph_name: str, source_name: str, measurement_expression: str) -> bool:
         """
         Adds a defined measurement calculation to a specified graph based on a source document.
         """
-        return add_measurement_to_graph(self.app, graph_name, source_name, measurement_expression)
+        return self.measurement_service.add_measurement_to_graph(graph_name, source_name, measurement_expression)
 
     def get_marker_data(self, graph: str, marker: str, toggle_enable: bool = False) -> List[float]:
         """Retrieves numerical data from a graph marker."""
-        raw_output = get_marker_value(
-            self.app,
+        raw_output = self.marker_service.get_marker_value(
             graph_title=graph,
             marker_designator=marker,
             perform_simulation=True,
@@ -74,11 +84,10 @@ class GraphManager:
                             action: str = "MIN", search_val: Optional[float] = None,
                             perform_simulation: bool = True) -> None:
         """
-        Delegates marker attachment and relocation (MIN/MAX/SEARCH) to the atomic module.
+        Delegates marker attachment and relocation (MIN/MAX/SEARCH) to the Marker service.
         Includes optional simulation execution prior to marker operations.
         """
-        return add_and_move_marker(
-            app=self.app,
+        return self.marker_service.add_and_move_marker(
             graph_name=graph_name,
             measurement_name=measurement_name,
             marker_name=marker_name,
@@ -91,14 +100,35 @@ class GraphManager:
                     action: str = "MIN", search_val: Optional[float] = None,
                     perform_simulation: bool = False) -> bool:
         """
-        Delegates the relocation of an existing marker (MIN/MAX/SEARCH) to the atomic module.
+        Delegates the relocation of an existing marker (MIN/MAX/SEARCH) to the Marker service.
         Includes optional simulation execution prior to relocation.
         """
-        return move_marker(
-            app=self.app,
+        return self.marker_service.move_marker(
             graph_name=graph_name,
             marker_name=marker_name,
             action=action,
             search_val=search_val,
             perform_simulation=perform_simulation
         )
+
+
+if __name__ == "__main__":
+    import pyawr.mwoffice as mwoffice
+
+    LOGGER.info("├── Starting standalone test sequence for manager.py")
+    try:
+        test_app = mwoffice.CMWOffice()
+        graph_manager = GraphManager(app=test_app)
+
+        target_graph = "Results"
+
+        LOGGER.info(f"│   ├── Initializing Manager with encapsulated domain classes...")
+
+        if test_app.Project.Graphs.Exists(target_graph):
+            graph_manager.toggle_measurements(target_graph, False)
+            LOGGER.info("│   ├── Successfully toggled measurements using encapsulated class logic.")
+
+        LOGGER.info("└── Test execution sequence completed successfully.")
+    except Exception as ex:
+        LOGGER.critical(f"└── Test execution failed: {ex}")
+        sys.exit(1)

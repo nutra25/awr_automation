@@ -11,7 +11,7 @@ from typing import Dict, Any
 
 from logger.logger import LOGGER
 from awr.awr_driver import AWRDriver
-from awr.graph.new_graph import GraphType
+from awr.graph.graph import GraphType
 from awr.data_file.new_data_file import DataFileType
 
 def create_loadpull_project(driver: AWRDriver, config: Dict[str, Any]) -> bool:
