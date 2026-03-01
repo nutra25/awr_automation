@@ -546,16 +546,3 @@ class BroadbandOptimumSelector(BasePointSelector):
             exporter.save_text(filename, html_content)
         except Exception as e:
             LOGGER.error(f"└── Encountered an error during 3D HTML text serialization: {e}")
-
-
-if __name__ == "__main__":
-    import sys
-    LOGGER.info("├── Starting standalone test sequence for iteration_point_selector.py")
-    try:
-        test_config = PointSelectorConfig(marker1_name="m3", show_plot=False)
-        selector = MaxMarkerSelector(config=test_config)
-        LOGGER.info(f"│   ├── Selector configured to target marker: {selector.config.marker1_name}")
-        LOGGER.info("└── Test execution sequence completed successfully")
-    except Exception as ex:
-        LOGGER.critical(f"└── Test execution failed: {ex}")
-        sys.exit(1)

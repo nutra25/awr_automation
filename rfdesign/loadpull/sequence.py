@@ -6,44 +6,82 @@ Operates using strictly typed configuration objects via dependency injection.
 """
 
 from typing import Tuple, Dict, Any, List
+from dataclasses import dataclass
 import objects
 from logger.logger import LOGGER
 from dataexporter.dataexporter import DataExporter
-from config import SequenceConfig
+from rfdesign.loadpull.tuner_utils import PullType, build_tuner_params, TunerConfig
 
-# Import isolated utilities instead of defining them internally
-from rfdesign.loadpull.tuner_utils import PullType, build_tuner_params
+
+@dataclass
+class WizardSettingsConfig:
+    """Configuration node specifically for AWR Load-Pull Wizard parameters."""
+    max_harmonic: int = 1
+    overwrite_data_file: bool = True
+    data_file_pattern: str = "{side}_pull_data_{iter}"
+    density: str = "Extra fine"
+
+
+@dataclass
+class SequenceConfig:
+    """Configuration node for the Load-Pull Sequence logic."""
+    schematic_name: str
+    tuner_settings: TunerConfig
+    wizard_settings: WizardSettingsConfig
+    measurement_config: List[Dict[str, str]]
+    graph_name_pattern: str
+    point_selector: Any
+    iteration_count: int
+    radius_list: Tuple[float, ...]
+
+    default_mag_expr: str = "calcMag(50,0,z0)"
+    default_ang_expr: str = "calcAng(50,0,z0)"
+    source_pull_prefix: str = "SP"
+    load_pull_prefix: str = "LP"
 
 
 class LoadPullSequence:
     """
     Executes the Load-Pull specific wizard operations and measurement extractions.
-    Completely decoupled from global project configurations, utilizing SequenceConfig.
     """
 
     def __init__(self, driver: Any, exporter: DataExporter, config: SequenceConfig):
-        """
-        Initializes the sequence with the strictly typed configuration branch.
-        """
         self.driver = driver
         self.exporter = exporter
         self.config = config
 
+    def _build_wizard_payload(self, active_side: str, fixed_side: str, iter_idx: int, radius: float, center_mag: float, center_ang: float) -> dict:
+        """Dynamically generates the required AWR Wizard dictionary using structured config."""
+        cfg = self.config.wizard_settings
+        h = cfg.max_harmonic
+        active_cap = active_side.capitalize()
+        fixed_cap = fixed_side.capitalize()
+
+        return {
+            "LP_MaxHarmonic": h,
+            "LP_DataFileName": cfg.data_file_pattern.format(side=active_side.lower(), iter=iter_idx),
+            "LP_OverwriteDataFile": cfg.overwrite_data_file,
+            f"LP_Sweep_{active_cap}{h}": True,
+            f"LP_Sweep_{fixed_cap}{h}": False,
+            f"LP_{active_cap}{h}_Density": cfg.density,
+            f"LP_{active_cap}{h}_Radius": radius,
+            f"LP_{active_cap}{h}_CenterMagnitude": center_mag,
+            f"LP_{active_cap}{h}_CenterAngle": center_ang
+        }
+
     def _run_iteration(self, iter_idx: int, pull_type: PullType,
                        radius: float, sweep_center: Tuple[float, float],
                        fixed_pos: Tuple[float, float], export_subpath: str) -> objects.PullResult:
-        """
-        Executes a single Source or Load pull iteration step.
-        Configures the tuners, runs the wizard, and delegates graphic export.
-        """
+
         is_source = (pull_type == PullType.SOURCEPULL)
-        h_idx = 1
+        h_idx = self.config.wizard_settings.max_harmonic
         active_side = "SOURCE" if is_source else "LOAD"
         fixed_side = "LOAD" if is_source else "SOURCE"
+        mode_prefix = self.config.source_pull_prefix if is_source else self.config.load_pull_prefix
 
-        # Use the injected tuner settings from the configuration object
         active_params = build_tuner_params(
-            self.config.tuner_settings, active_side, "calcMag(50,0,z0)", "calcAng(50,0,z0)", h_idx
+            self.config.tuner_settings, active_side,
+            self.config.default_mag_expr, self.config.default_ang_expr, h_idx
         )
 
         if isinstance(fixed_pos, (list, tuple)) and len(fixed_pos) >= 2:
@@ -53,7 +91,6 @@ class LoadPullSequence:
             fixed_params = build_tuner_params(self.config.tuner_settings, fixed_side, fixed_pos, fixed_pos, h_idx)
             center_ang = sweep_center
 
-        # FIXED: Accessed dataclass properties using dot notation instead of dictionary keys
         self.driver.circuit.configure_element(
             self.config.schematic_name, self.config.tuner_settings.source.name,
             active_params if is_source else fixed_params
@@ -63,17 +100,17 @@ class LoadPullSequence:
             fixed_params if is_source else active_params
         )
 
-        wizard_opts = {
-            "LP_MaxHarmonic": h_idx,
-            "LP_DataFileName": f"{active_side.lower()}_pull_data_{iter_idx}",
-            "LP_OverwriteDataFile": True,
-            f"LP_Sweep_{active_side.capitalize()}{h_idx}": True,
-            f"LP_Sweep_{fixed_side.capitalize()}{h_idx}": False,
-            f"LP_{active_side.capitalize()}{h_idx}_Density": "Extra fine",
-            f"LP_{active_side.capitalize()}{h_idx}_Radius": radius,
-            f"LP_{active_side.capitalize()}{h_idx}_CenterMagnitude": sweep_center[0] if isinstance(sweep_center, (list, tuple)) else sweep_center,
-            f"LP_{active_side.capitalize()}{h_idx}_CenterAngle": center_ang
-        }
+        center_mag = sweep_center[0] if isinstance(sweep_center, (list, tuple)) else sweep_center
+
+
+        wizard_opts = self._build_wizard_payload(
+            active_side=active_side,
+            fixed_side=fixed_side,
+            iter_idx=iter_idx,
+            radius=radius,
+            center_mag=center_mag,
+            center_ang=center_ang
+        )
 
         self.driver.wizard.run_wizard(wizard_opts)
 
@@ -88,18 +125,15 @@ class LoadPullSequence:
 
         return objects.PullResult(
             iter_no=iter_idx,
-            mode="SP" if is_source else "LP",
+            mode=mode_prefix,
             point=point,
             mag=float(mag),
             ang=float(ang)
         )
 
     def _finalize_state(self, results: List[objects.PullResult]) -> Tuple[Dict, Tuple]:
-        """
-        Identifies the global maximum results, sets the tuners, and captures final measurements.
-        """
-        best_lp = max((x for x in results if x.mode == "LP"), key=lambda x: float(x.point))
-        best_sp = next(res for res in results if res.iter_no == best_lp.iter_no and res.mode == "SP")
+        best_lp = max((x for x in results if x.mode == self.config.load_pull_prefix), key=lambda x: float(x.point))
+        best_sp = next(res for res in results if res.iter_no == best_lp.iter_no and res.mode == self.config.source_pull_prefix)
 
         self.driver.circuit.configure_element(
             self.config.schematic_name, self.config.tuner_settings.source.name,
@@ -113,7 +147,7 @@ class LoadPullSequence:
         measured_data = {}
         for m in self.config.measurement_config:
             self.driver.graph.toggle_measurements(m["graph"], enable=True)
-            self.driver.graph.move_marker(graph_name=m["graph"],marker_name=m["marker"],action="MIN",perform_simulation=True)
+            self.driver.graph.move_marker(graph_name=m["graph"], marker_name=m["marker"], action="MIN", perform_simulation=True)
             data = self.driver.graph.get_marker_data(m["graph"], m["marker"], toggle_enable=False)
             self.driver.graph.toggle_measurements(m["graph"], enable=False)
             val = str(data[m["index"]]) if len(data) > m["index"] else "NaN"
@@ -125,10 +159,6 @@ class LoadPullSequence:
         return measured_data, tuner_data
 
     def execute(self, export_subpath: str) -> Tuple[Dict, List[objects.PullResult], Tuple]:
-        """
-        Main execution loop for a single state.
-        Runs predefined iterations and returns the final measurements and results.
-        """
         current_results = []
         pos = {PullType.SOURCEPULL: (0.0, 0.0), PullType.LOADPULL: (0.0, 0.0)}
 
@@ -160,37 +190,3 @@ class LoadPullSequence:
         measured_data, tuner_data = self._finalize_state(current_results)
 
         return measured_data, current_results, tuner_data
-
-
-if __name__ == "__main__":
-    import sys
-    LOGGER.info("├── Starting standalone test sequence for sequence.py")
-    try:
-        from rfdesign.loadpull.tuner_utils import TunerConfig, TunerSideConfig
-
-        class DummySelector:
-            def select_point(self, driver, graph, exporter, export_subpath):
-                return "10.0", "0.5", "45.0"
-
-        dummy_tuner_config = TunerConfig(
-            source=TunerSideConfig(name="S", prefix_mag="M", prefix_ang="A"),
-            load=TunerSideConfig(name="L", prefix_mag="M", prefix_ang="A")
-        )
-
-        dummy_config = SequenceConfig(
-            schematic_name="Test_Schematic",
-            tuner_settings=dummy_tuner_config,
-            measurement_config=[],
-            graph_name_pattern="test_{iter}_{type}",
-            point_selector=DummySelector(),
-            iteration_count=1,
-            radius_list=("0.99",)
-        )
-
-        seq = LoadPullSequence(driver=None, exporter=None, config=dummy_config)
-        LOGGER.info(f"│   ├── Sequence Config Schematic: {seq.config.schematic_name}")
-        LOGGER.info(f"│   ├── Tuner Source Name: {seq.config.tuner_settings.source.name}")
-        LOGGER.info("└── Test execution sequence completed successfully")
-    except Exception as ex:
-        LOGGER.critical(f"└── Test execution failed: {ex}")
-        sys.exit(1)

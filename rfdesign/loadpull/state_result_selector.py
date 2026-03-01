@@ -94,16 +94,3 @@ class LastIterationStrategy(BestResultStrategy):
         LOGGER.info(f" └── Selected Result: {best_result.point} (Mode: {best_result.mode})")
 
         return best_result
-
-
-if __name__ == "__main__":
-    import sys
-    LOGGER.info("├── Starting standalone test sequence for state_result_selector.py")
-    try:
-        test_config = ResultSelectorConfig(target_value=35.0)
-        strategy = TargetPointStrategy(config=test_config)
-        LOGGER.info(f"│   ├── Strategy configured with target value: {strategy.config.target_value}")
-        LOGGER.info("└── Test execution sequence completed successfully")
-    except Exception as ex:
-        LOGGER.critical(f"└── Test execution failed: {ex}")
-        sys.exit(1)

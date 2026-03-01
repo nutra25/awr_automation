@@ -50,20 +50,3 @@ def build_tuner_params(config: TunerConfig, side: str, mag: Any, ang: Any, harmo
         f"{cfg.prefix_mag}{harmonic}": str(mag),
         f"{cfg.prefix_ang}{harmonic}": str(ang)
     }
-
-
-if __name__ == "__main__":
-    import sys
-    from logger.logger import LOGGER
-    LOGGER.info("├── Starting standalone test sequence for tuner_utils.py")
-    try:
-        source_cfg = TunerSideConfig(name="S_Tuner", prefix_mag="Mag", prefix_ang="Ang")
-        load_cfg = TunerSideConfig(name="L_Tuner", prefix_mag="Mag", prefix_ang="Ang")
-        test_tuner_config = TunerConfig(source=source_cfg, load=load_cfg)
-
-        params = build_tuner_params(test_tuner_config, "SOURCE", 0.5, 45.0)
-        LOGGER.info(f"│   ├── Generated Source Params: {params}")
-        LOGGER.info("└── Test execution sequence completed successfully")
-    except Exception as ex:
-        LOGGER.critical(f"└── Test execution failed: {ex}")
-        sys.exit(1)
