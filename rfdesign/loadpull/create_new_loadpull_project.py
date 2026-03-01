@@ -112,6 +112,12 @@ def create_loadpull_project(driver: AWRDriver, config: Dict[str, Any]) -> bool:
         driver.graph.add_measurement(graph_name="Results", source_name=f"{schematic_name}.AP_HB", measurement_expression="PAE(PORT_1,PORT_2)")
         driver.graph.add_measurement(graph_name="Results", source_name=f"{schematic_name}.AP_HB", measurement_expression="DB(PT(PORT_2))")
 
+        driver.graph.add_and_move_marker(graph_name="Results", measurement_name="PAE(PORT_1,PORT_2)",marker_name="MinPAE",action="MIN")
+        driver.graph.add_and_move_marker(graph_name="Results", measurement_name="PAE(PORT_1,PORT_2)",marker_name="MaxPAE",action="MAX")
+        driver.graph.add_and_move_marker(graph_name="Results", measurement_name="DB(PT(PORT_2))",marker_name="MinPwr",action="MIN")
+        driver.graph.add_and_move_marker(graph_name="Results", measurement_name="DB(PT(PORT_2))",marker_name="MaxPwr",action="MAX")
+
+
         LOGGER.info("└── Load-Pull Project Creation Sequence Finalized Successfully.")
         driver.project.save_current_project_as(save_path= r"C:\Users\aliutkay\OneDrive\Masaüstü\test\loadpull.emp")
         return True

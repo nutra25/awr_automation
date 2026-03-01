@@ -78,8 +78,8 @@ _TUNER_CONFIG = TunerConfig(
 )
 
 _MEASUREMENT_CONFIG = [
-    {"header": "PLoad [dBm]", "graph": "Results", "marker": "m1", "index": 1},
-    {"header": "PAE [%]", "graph": "Results", "marker": "m2", "index": 1}
+    {"header": "PLoad [dBm]", "graph": "Results", "marker": "MinPwr", "index": 1},
+    {"header": "PAE [%]", "graph": "Results", "marker": "MinPAE", "index": 1}
 ]
 
 app_config = AppConfig(

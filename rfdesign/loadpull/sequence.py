@@ -112,7 +112,10 @@ class LoadPullSequence:
 
         measured_data = {}
         for m in self.config.measurement_config:
-            data = self.driver.graph.get_marker_data(m["graph"], m["marker"], toggle_enable=True)
+            self.driver.graph.toggle_measurements(m["graph"], enable=True)
+            self.driver.graph.move_marker(graph_name=m["graph"],marker_name=m["marker"],action="MIN",perform_simulation=True)
+            data = self.driver.graph.get_marker_data(m["graph"], m["marker"], toggle_enable=False)
+            self.driver.graph.toggle_measurements(m["graph"], enable=False)
             val = str(data[m["index"]]) if len(data) > m["index"] else "NaN"
             measured_data[m["header"]] = val
 
