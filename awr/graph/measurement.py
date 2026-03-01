@@ -1,11 +1,6 @@
 """
 measurement.py
-Encapsulates all operations related to measurements within AWR graphs.
-Handles enabling/disabling measurements, adding new measurements,
-and serves as a placeholder for future query operations.
-Strictly adheres to the tree-branch logging hierarchy.
 """
-
 import sys
 from typing import Any
 import pyawr.mwoffice as mwoffice
@@ -16,7 +11,6 @@ class Measurement:
     """
     Service class managing graph measurement operations.
     """
-
     def __init__(self, app: Any):
         """
         Initializes the Measurement operations class.
