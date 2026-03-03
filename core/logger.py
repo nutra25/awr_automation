@@ -13,7 +13,7 @@ from datetime import datetime
 from dataclasses import dataclass
 
 # Import the default path configuration for global fallback initialization
-from paths import default_paths
+from core.paths import default_paths
 
 
 @dataclass

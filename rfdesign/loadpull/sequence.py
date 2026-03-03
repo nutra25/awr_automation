@@ -4,40 +4,34 @@ Encapsulates the Load-Pull specific optimization sequence.
 Handles source/load iterations, wizard execution, and global maximum point selection.
 Operates using strictly typed configuration objects via injected AutomationContext.
 """
-
 from typing import Tuple, Dict, Any, List
-from dataclasses import dataclass
+from pydantic import BaseModel, Field, ConfigDict
 from rfdesign.loadpull.models import PullResult
 from core.logger import logger
 from rfdesign.loadpull.tuner_utils import PullType, build_tuner_params, TunerConfig
 
-
-@dataclass
-class WizardSettingsConfig:
-    """Configuration node specifically for AWR Load-Pull Wizard parameters."""
-    max_harmonic: int = 1
+class WizardSettingsConfig(BaseModel):
+    max_harmonic: int = Field(default=1, ge=1)
     overwrite_data_file: bool = True
     data_file_pattern: str = "{side}_pull_data_{iter}"
     density: str = "Extra fine"
 
+class SequenceConfig(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-@dataclass
-class SequenceConfig:
-    """Configuration node for the Load-Pull Sequence logic."""
     schematic_name: str
     tuner_settings: TunerConfig
     wizard_settings: WizardSettingsConfig
     measurement_config: List[Dict[str, Any]]
     graph_name_pattern: str
     point_selector: Any
-    iteration_count: int
+    iteration_count: int = Field(..., gt=0)
     radius_list: Tuple[float, ...]
 
     default_mag_expr: str = "calcMag(50,0,z0)"
     default_ang_expr: str = "calcAng(50,0,z0)"
     source_pull_prefix: str = "SP"
     load_pull_prefix: str = "LP"
-
 
 class LoadPullSequence:
     """

@@ -10,8 +10,9 @@ import time
 import os
 import sys
 from typing import List, Tuple, Any, Dict, Protocol, Union
+
 from core.logger import logger
-from core.context import AutomationContext
+
 from rfdesign.loadpull.handlers import StateHandler
 from rfdesign.loadpull.manager import LoadPullManager
 
@@ -43,22 +44,17 @@ class SimulationManager:
     Receives all dependencies and configurations via the injected Context.
     """
 
-    def __init__(self, context: AutomationContext):
+    def __init__(self, context: Any):
         self.context = context
 
-        # Extract dependencies from context for easier access
         self.driver = self.context.driver
         self.exporter = self.context.exporter
         self.config = self.context.config.engine
         self.rf_design_config = self.context.config.rf_design
 
-        self.state_handler = StateHandler(
-            circuit_manager=self.driver.circuit,
-            config=self.rf_design_config.loadpull.handlers
-        )
+        self.state_handler = StateHandler(context=self.context)
 
-        # Pass only the context to the LoadPullManager
-        self.lp_manager = LoadPullManager(self.context)
+        self.lp_manager = LoadPullManager(context=self.context)
 
         csv_dir = os.path.join(self.config.run_dir, "csv results")
         os.makedirs(csv_dir, exist_ok=True)

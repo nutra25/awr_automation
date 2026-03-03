@@ -1,64 +1,47 @@
 """
 models.py
 Defines the core domain data structures for the simulation engine.
-Strictly adheres to the dataclass driven architecture.
+Strictly adheres to the Pydantic BaseModel architecture for automated validation.
 """
-from dataclasses import dataclass, field
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 from typing import List, Tuple, Any, Union, Optional
 from enum import Enum, auto
 
-# Import the utility function from its proper module
 from engine.utils import normalize_to_tuple
 
-
 class StateType(Enum):
-    """Enumeration identifying the nature of the state variable."""
     ELEMENT = auto()
     RF_FREQUENCY = auto()
 
-
-@dataclass
-class Element:
-    """Represents a discrete component configuration targeting the simulator."""
+class Element(BaseModel):
     name: str = ""
     arg: str = ""
 
+class State(BaseModel):
+    name: str = ""
+    value: Tuple[str, ...] = Field(default_factory=tuple, repr=False)
+    element: Optional[List[Element]] = None
+    type: Optional[StateType] = None
 
-@dataclass(init=False)
-class State:
-    """Encapsulates the simulation state parameters."""
-    name: str
-    type: StateType
-    element: Optional[List[Element]]
-    _value: Tuple[str, ...] = field(repr=False)
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    def __init__(
-            self,
-            name: str = "",
-            value: Union[str, int, float, List[Any], Tuple[Any, ...]] = "",
-            element: Optional[List["Element"]] = None,
-            type: Optional[StateType] = None,
-    ) -> None:
-        self.name = name
-        self._value = normalize_to_tuple(value)
+    @field_validator('value', mode='before')
+    @classmethod
+    def _parse_value(cls, val: Any) -> Tuple[str, ...]:
+        return normalize_to_tuple(val)
 
-        if type is not None:
-            self.type = type
-        else:
-            self.type = StateType.ELEMENT if element is not None else StateType.ELEMENT
+    @model_validator(mode='after')
+    def _set_type_and_elements(self) -> 'State':
+        if self.type is None:
+            self.type = StateType.ELEMENT
 
         if self.type == StateType.ELEMENT:
-            self.element = element if element is not None else []
+            if self.element is None:
+                self.element = []
         else:
             self.element = None
 
-    @property
-    def value(self) -> Tuple[str, ...]:
-        return self._value
-
-    @value.setter
-    def value(self, val: Union[str, int, float, List[Any], Tuple[Any, ...]]) -> None:
-        self._value = normalize_to_tuple(val)
+        return self
 
     def __repr__(self) -> str:
         el_str = f", element={self.element}" if self.element is not None else ""

@@ -1,52 +1,43 @@
 """
 config.py
 Defines the hierarchical configuration structure for the AWR Automation project.
-Utilizes dataclasses to provide strictly typed and structured configuration nodes.
+Utilizes Pydantic to provide strictly typed, validated, and structured configuration nodes.
 Fully integrated with domain-specific configuration objects imported directly from their modules.
 """
-from dataclasses import dataclass
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Dict, Any
 
 from engine.models import State, StateType, Element
 from engine.utils import generate_sweep_values
-from paths import RUN_DIR, GRAPHS_DIR, EMP_DIR
+from core.paths import RUN_DIR, GRAPHS_DIR, EMP_DIR
 
-# Import encapsulated domain-specific configuration nodes
-from rfdesign.loadpull.iteration_point_selector import BroadbandOptimumSelector, PointSelectorConfig
+from rfdesign.loadpull.iteration_point_selector import BroadbandOptimumSelector, PointSelectorConfig, MaxMarkerSelector
 from rfdesign.loadpull.tuner_utils import TunerConfig, TunerSideConfig
-
 from rfdesign.loadpull.handlers import HandlersConfig
 from rfdesign.loadpull.sequence import SequenceConfig, WizardSettingsConfig
 from rfdesign.loadpull.manager import LoadPullConfig
 from rfdesign.loadpull.create_new_loadpull_project import CreateProjectConfig
 
-# ---------------------------------------------------------
-# Global Configuration Dataclasses (Upper Tree Structure)
-# ---------------------------------------------------------
-
-@dataclass
-class RfDesignConfig:
-    """Configuration node managing all RF design strategies and macros."""
+class RfDesignConfig(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     loadpull: LoadPullConfig
-    project_generation: CreateProjectConfig
+    project_generation: Any
 
-@dataclass
-class EngineConfig:
-    """Configuration node for the global simulation engine."""
+class EngineConfig(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     schematic_name: str
     state_cons: List[State]
     state_var: List[State]
     measurement_config: List[Dict[str, Any]]
-    iteration_count: int
+    iteration_count: int = Field(..., gt=0)
     run_dir: str
     graphs_dir: str
     emp_dir: str
 
-@dataclass
-class AppConfig:
-    """Root configuration node for the entire application."""
-    awr_path: str
-    project_template_path: str
+class AppConfig(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    awr_path: str = Field(..., description="Absolute path to the AWR executable")
+    project_template_path: str = Field(..., description="Absolute path to the starting .emp template")
     engine: EngineConfig
     rf_design: RfDesignConfig
 
@@ -82,7 +73,7 @@ app_config = AppConfig(
         state_cons=[
             State(
                 name="Frekans (GHz)",
-                value=generate_sweep_values(13, 13, 0.05),
+                value=generate_sweep_values(13.1, 13.1, 0.05),
                 type=StateType.RF_FREQUENCY,
             ),
             State(
@@ -94,12 +85,12 @@ app_config = AppConfig(
         state_var=[
             State(
                 name="P_in (dBm)",
-                value="30",
+                value="31",
                 element=[Element(name="PORT1.P1", arg="Pwr")]
             ),
             State(
                 name="VGS (V)",
-                value="-2.9",
+                value="-2.85",
                 element=[Element(name="DCVS.VGS", arg="V")]
             )
         ],
@@ -127,7 +118,8 @@ app_config = AppConfig(
                 ),
                 measurement_config=_MEASUREMENT_CONFIG,
                 graph_name_pattern=_GRAPH_NAME_PATTERN,
-                point_selector=BroadbandOptimumSelector(config=PointSelectorConfig(show_plot=True)),
+                point_selector=MaxMarkerSelector,
+                #BroadbandOptimumSelector(config=PointSelectorConfig(show_plot=True)),
                 iteration_count=_ITERATION_COUNT,
                 radius_list=_RADIUS_LIST
             )

@@ -16,7 +16,7 @@ class PathsConfig:
     Configuration node for project path management.
     Calculates dynamic run directories upon instantiation.
     """
-    base_output_dir: str = "outputs"
+    base_output_dir: str = "../outputs"
     run_dir: str = field(init=False)
     logs_dir: str = field(init=False)
     graphs_dir: str = field(init=False)
