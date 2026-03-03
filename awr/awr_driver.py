@@ -9,7 +9,7 @@ import subprocess
 import os
 import pyawr.mwoffice as mwoffice
 
-from core.logger import LOGGER
+from core.logger import logger
 
 # Domain Managers Integration
 from awr.project.manager import ProjectManager
@@ -34,56 +34,56 @@ class AWRDriver:
         self.app = self._initialize_application(exe_path)
 
         # Initialize Sub-Domain Managers with the active COM object
-        LOGGER.info("├── Instantiating domain-specific manager modules...")
+        logger.info("├── Instantiating domain-specific manager modules...")
         self.project = ProjectManager(self.app)
         self.circuit = CircuitSchematicManager(self.app)
         self.graph = GraphManager(self.app)
         self.wizard = WizardManager(self.app)
         self.data_file = DataFileManager(self.app)
 
-        LOGGER.info("└── Domain managers successfully initialized.")
+        logger.info("└── Domain managers successfully initialized.")
 
     def _initialize_application(self, exe_path: str, timeout: int = 60):
         """
         Robust connection logic featuring auto-launch capabilities and a controlled timeout loop.
         """
-        LOGGER.info("├── Initializing AWR Microwave Office Application...")
+        logger.info("├── Initializing AWR Microwave Office Application...")
 
         # NOTE: Existing session attachment block is currently commented out in your version.
         # Uncommenting this block is recommended if you wish to attach to an already running instance.
 
         try:
             app = mwoffice.CMWOffice()
-            LOGGER.info("└── Successfully connected to active session.")
+            logger.info("└── Successfully connected to active session.")
             return app
         except Exception:
-            LOGGER.debug("├── No active session found.")
+            logger.debug("├── No active session found.")
 
 
         if exe_path:
             if os.path.exists(exe_path):
-                LOGGER.info(f"├── Launching new instance from: {exe_path}")
+                logger.info(f"├── Launching new instance from: {exe_path}")
                 try:
                     subprocess.Popen(exe_path)
                 except Exception as e:
-                    LOGGER.critical(f"└── Failed to launch executable: {e}")
+                    logger.critical(f"└── Failed to launch executable: {e}")
                     raise
             else:
-                LOGGER.warning(f"├── Executable path not found: {exe_path}")
-                LOGGER.warning("├── Waiting for manual start...")
+                logger.warning(f"├── Executable path not found: {exe_path}")
+                logger.warning("├── Waiting for manual start...")
         else:
-            LOGGER.warning("├── No executable path provided. Waiting for manual start...")
+            logger.warning("├── No executable path provided. Waiting for manual start...")
 
-        LOGGER.info(f"├── Waiting for application to initialize (Timeout: {timeout}s)...")
+        logger.info(f"├── Waiting for application to initialize (Timeout: {timeout}s)...")
         start_time = time.time()
 
         while (time.time() - start_time) < timeout:
             try:
                 app = mwoffice.CMWOffice()
-                LOGGER.info("└── Application started and connected successfully.")
+                logger.info("└── Application started and connected successfully.")
                 return app
             except Exception:
                 time.sleep(2)
 
-        LOGGER.critical("└── Timeout reached: Application failed to start or connect.")
+        logger.critical("└── Timeout reached: Application failed to start or connect.")
         raise TimeoutError("MWOffice failed to start within the allocated time.")

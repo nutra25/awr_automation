@@ -1,5 +1,5 @@
 import os
-from core.logger import LOGGER
+from core.logger import logger
 
 
 def open_project(app_instance: any, project_path: str) -> bool:
@@ -7,11 +7,11 @@ def open_project(app_instance: any, project_path: str) -> bool:
     Validates the existence of the target file and attempts to load it
     into the active AWR application instance.
     """
-    LOGGER.info(f"├── Initiating project load operation from path: {project_path}")
+    logger.info(f"├── Initiating project load operation from path: {project_path}")
 
     # Pre-flight check to ensure the target path exists on the file system
     if not os.path.exists(project_path):
-        LOGGER.error(f"└── Aborting load operation. Specified project file does not exist: {project_path}")
+        logger.error(f"└── Aborting load operation. Specified project file does not exist: {project_path}")
         return False
 
     try:
@@ -21,12 +21,12 @@ def open_project(app_instance: any, project_path: str) -> bool:
         if success:
             # Verify success by retrieving the newly loaded active project name
             active_project_name = app_instance.Project.Name
-            LOGGER.info(f"└── Successfully loaded the specified project file: {active_project_name}")
+            logger.info(f"└── Successfully loaded the specified project file: {active_project_name}")
             return True
         else:
-            LOGGER.error("└── Project open operation returned a failure status (False).")
+            logger.error("└── Project open operation returned a failure status (False).")
             return False
 
     except Exception as e:
-        LOGGER.error(f"└── Encountered a critical error during the project open operation: {e}")
+        logger.error(f"└── Encountered a critical error during the project open operation: {e}")
         return False

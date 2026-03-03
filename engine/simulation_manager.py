@@ -10,7 +10,7 @@ import time
 import os
 import sys
 from typing import List, Tuple, Any, Dict, Protocol, Union
-from core.logger import LOGGER
+from core.logger import logger
 from core.context import AutomationContext
 from rfdesign.loadpull.handlers import StateHandler
 from rfdesign.loadpull.manager import LoadPullManager
@@ -80,7 +80,7 @@ class SimulationManager:
         return headers
 
     def run_state(self, state_values: Tuple, state_idx: int = 1, total_states: int = 1):
-        LOGGER.info(f"├── PROCESSING STATE {state_idx}/{total_states}: {state_values}")
+        logger.info(f"├── PROCESSING STATE {state_idx}/{total_states}: {state_values}")
 
         state_dir_name = f"State No {state_idx}"
         current_state_graph_dir = os.path.join(self.config.graphs_dir, state_dir_name)
@@ -109,11 +109,11 @@ class SimulationManager:
         full_emp_path = os.path.join(current_state_emp_dir, emp_filename)
         self.driver.project.save_current_project_as(full_emp_path)
 
-        LOGGER.info(f"└── STATE {state_idx} COMPLETE")
+        logger.info(f"└── STATE {state_idx} COMPLETE")
         return measured_data
 
     def start(self):
-        LOGGER.info("Starting Global Simulation Sequence")
+        logger.info("Starting Global Simulation Sequence")
 
         for constant in self.config.state_cons:
             val = constant.value
@@ -123,23 +123,23 @@ class SimulationManager:
         combinations = list(itertools.product(*[v.value for v in self.config.state_var]))
         total_combos = len(combinations)
 
-        LOGGER.info(f"├── State Matrix Generated: {total_combos} unique combinations.")
+        logger.info(f"├── State Matrix Generated: {total_combos} unique combinations.")
 
         start_time = time.time()
         for idx, combo in enumerate(combinations):
             self.run_state(combo, state_idx=idx + 1, total_states=total_combos)
 
         elapsed_time = time.time() - start_time
-        LOGGER.info(f"└── Global Simulation Sequence Completed in {elapsed_time:.2f} seconds.")
+        logger.info(f"└── Global Simulation Sequence Completed in {elapsed_time:.2f} seconds.")
 
 
 if __name__ == "__main__":
-    LOGGER.info("├── Starting standalone test sequence for simulation_manager.py")
+    logger.info("├── Starting standalone test sequence for simulation_manager.py")
     try:
         class DummyDriver:
             pass
 
-        LOGGER.info("└── Test execution sequence completed successfully")
+        logger.info("└── Test execution sequence completed successfully")
     except Exception as ex:
-        LOGGER.critical(f"└── Test execution failed: {ex}")
+        logger.critical(f"└── Test execution failed: {ex}")
         sys.exit(1)

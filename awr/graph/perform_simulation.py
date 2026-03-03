@@ -5,7 +5,7 @@ Strictly adheres to the tree-branch logging hierarchy and error handling protoco
 """
 
 from typing import Any
-from core.logger import LOGGER
+from core.logger import logger
 
 def perform_simulation(app: Any) -> bool:
     """
@@ -23,11 +23,11 @@ def perform_simulation(app: Any) -> bool:
     try:
         project = app.Project
         # Simulation steps are logged as DEBUG to keep the console output clean
-        LOGGER.debug("│   ├── Starting Simulation (Analyze)...")
+        logger.debug("│   ├── Starting Simulation (Analyze)...")
         simulator = project.Simulator
         simulator.Analyze()
-        LOGGER.debug("│   ├── Simulation Completed.")
+        logger.debug("│   ├── Simulation Completed.")
         return True
     except Exception as sim_error:
-        LOGGER.critical(f"│   └── Simulation FAILED: {sim_error}")
+        logger.critical(f"│   └── Simulation FAILED: {sim_error}")
         raise RuntimeError(f"Simulation execution failed: {sim_error}")

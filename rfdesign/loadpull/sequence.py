@@ -8,7 +8,7 @@ Operates using strictly typed configuration objects via injected AutomationConte
 from typing import Tuple, Dict, Any, List
 from dataclasses import dataclass
 from rfdesign.loadpull.models import PullResult
-from core.logger import LOGGER
+from core.logger import logger
 from rfdesign.loadpull.tuner_utils import PullType, build_tuner_params, TunerConfig
 
 
@@ -170,7 +170,7 @@ class LoadPullSequence:
             radius = float(self.config.radius_list[i])
             iter_num = i + 1
 
-            LOGGER.info(f"│   ├── Iteration {iter_num}/{self.config.iteration_count} (Radius: {radius})")
+            logger.info(f"│   ├── Iteration {iter_num}/{self.config.iteration_count} (Radius: {radius})")
 
             sp_res = self._run_iteration(
                 iter_num, PullType.SOURCEPULL, radius,
@@ -179,7 +179,7 @@ class LoadPullSequence:
             )
             current_results.append(sp_res)
             pos[PullType.SOURCEPULL] = (float(sp_res.mag), float(sp_res.ang))
-            LOGGER.info(f"│   ├── SP Result: Mag [{sp_res.mag:.3f}], Ang [{sp_res.ang:.1f}]")
+            logger.info(f"│   ├── SP Result: Mag [{sp_res.mag:.3f}], Ang [{sp_res.ang:.1f}]")
 
             lp_res = self._run_iteration(
                 iter_num, PullType.LOADPULL, radius,
@@ -188,9 +188,9 @@ class LoadPullSequence:
             )
             current_results.append(lp_res)
             pos[PullType.LOADPULL] = (float(lp_res.mag), float(lp_res.ang))
-            LOGGER.info(f"│   └── LP Result: Mag [{lp_res.mag:.3f}], Ang [{lp_res.ang:.1f}]")
+            logger.info(f"│   └── LP Result: Mag [{lp_res.mag:.3f}], Ang [{lp_res.ang:.1f}]")
 
-        LOGGER.debug("│   ├── Finalizing state configuration and preparing data export...")
+        logger.debug("│   ├── Finalizing state configuration and preparing data export...")
         measured_data, tuner_data = self._finalize_state(current_results)
 
         return measured_data, current_results, tuner_data

@@ -16,7 +16,7 @@ from awr.graph.perform_simulation import perform_simulation
 from awr.graph.graph import Graph, GraphType, MarkerDisplayFormat
 from awr.graph.marker import Marker
 from awr.graph.measurement import Measurement
-from core.logger import LOGGER
+from core.logger import logger
 
 
 class GraphManager:
@@ -45,7 +45,7 @@ class GraphManager:
     def toggle_measurements(self, graph_name: str, enable: bool) -> bool:
         """Enables or disables all measurements on a specified graph."""
         if not self.app.Project.Graphs.Exists(graph_name):
-            LOGGER.error(f"│   └── Target graph '{graph_name}' does not exist for toggle operation.")
+            logger.error(f"│   └── Target graph '{graph_name}' does not exist for toggle operation.")
             return False
 
         graph = self.app.Project.Graphs(graph_name)
@@ -123,20 +123,20 @@ class GraphManager:
 if __name__ == "__main__":
     import pyawr.mwoffice as mwoffice
 
-    LOGGER.info("├── Starting standalone test sequence for manager.py")
+    logger.info("├── Starting standalone test sequence for manager.py")
     try:
         test_app = mwoffice.CMWOffice()
         graph_manager = GraphManager(app=test_app)
 
         target_graph = "Results"
 
-        LOGGER.info(f"│   ├── Initializing Manager with encapsulated domain classes...")
+        logger.info(f"│   ├── Initializing Manager with encapsulated domain classes...")
 
         if test_app.Project.Graphs.Exists(target_graph):
             graph_manager.toggle_measurements(target_graph, False)
-            LOGGER.info("│   ├── Successfully toggled measurements using encapsulated class logic.")
+            logger.info("│   ├── Successfully toggled measurements using encapsulated class logic.")
 
-        LOGGER.info("└── Test execution sequence completed successfully.")
+        logger.info("└── Test execution sequence completed successfully.")
     except Exception as ex:
-        LOGGER.critical(f"└── Test execution failed: {ex}")
+        logger.critical(f"└── Test execution failed: {ex}")
         sys.exit(1)

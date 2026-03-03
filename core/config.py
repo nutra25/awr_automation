@@ -148,14 +148,14 @@ app_config = AppConfig(
 
 if __name__ == "__main__":
     import sys
-    from core.logger import LOGGER
-    LOGGER.info("├── Testing final configuration tree integration...")
+    from core.logger import logger
+    logger.info("├── Testing final configuration tree integration...")
     try:
-        LOGGER.info(f"│   ├── App Executable Path: {app_config.awr_path}")
-        LOGGER.info(f"│   ├── Tuner Source Name: {app_config.rf_design.loadpull.sequence.tuner_settings.source.name}")
-        LOGGER.info(f"│   ├── Point Selector Plot Status: {app_config.rf_design.loadpull.sequence.point_selector.config.show_plot}")
-        LOGGER.info(f"│   ├── Project Generation Library: {app_config.rf_design.project_generation.library_path}")
-        LOGGER.info("└── Configuration integration test completed successfully.")
+        logger.info(f"│   ├── App Executable Path: {app_config.awr_path}")
+        logger.info(f"│   ├── Tuner Source Name: {app_config.rf_design.loadpull.sequence.tuner_settings.source.name}")
+        logger.info(f"│   ├── Point Selector Plot Status: {app_config.rf_design.loadpull.sequence.point_selector.config.show_plot}")
+        logger.info(f"│   ├── Project Generation Library: {app_config.rf_design.project_generation.library_path}")
+        logger.info("└── Configuration integration test completed successfully.")
     except Exception as e:
-        LOGGER.critical(f"└── Configuration test failed: {e}")
+        logger.critical(f"└── Configuration test failed: {e}")
         sys.exit(1)

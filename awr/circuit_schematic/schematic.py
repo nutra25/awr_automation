@@ -10,7 +10,7 @@ import sys
 from typing import Any, List, Tuple, Set, Union
 import pyawr.mwoffice as mwoffice
 
-from core.logger import LOGGER
+from core.logger import logger
 from awr.circuit_schematic.element import Element
 
 
@@ -31,22 +31,22 @@ class Schematic:
 
     def set_frequency(self, schematic_name: str, frequencies: Union[float, List[float]]) -> None:
         """Configures the RF simulation frequencies for a specific AWR schematic."""
-        LOGGER.info(f"├── Configuring RF Frequencies: '{schematic_name}'")
+        logger.info(f"├── Configuring RF Frequencies: '{schematic_name}'")
 
         try:
             project = self.app.Project
 
             if project.Schematics.Exists(schematic_name):
                 schematic = project.Schematics(schematic_name)
-                LOGGER.debug(f"│   ├── Connected to schematic: {schematic_name}")
+                logger.debug(f"│   ├── Connected to schematic: {schematic_name}")
 
                 if schematic.UseProjectFrequencies:
                     schematic.UseProjectFrequencies = False
-                    LOGGER.info(f"│   ├── Project defaults disabled.")
+                    logger.info(f"│   ├── Project defaults disabled.")
 
                 old_count = schematic.Frequencies.Count
                 schematic.Frequencies.Clear()
-                LOGGER.debug(f"│   ├── Cleared {old_count} existing points.")
+                logger.debug(f"│   ├── Cleared {old_count} existing points.")
 
                 freq_list = [frequencies] if isinstance(frequencies, (int, float)) else frequencies
                 total_freqs = len(freq_list)
@@ -55,14 +55,14 @@ class Schematic:
                     schematic.Frequencies.Add(freq * 1e9)
                     is_last = (i == total_freqs - 1)
                     tree_char = "└──" if is_last else "├──"
-                    LOGGER.info(f"│   {tree_char} Added Frequency: {freq} GHz")
+                    logger.info(f"│   {tree_char} Added Frequency: {freq} GHz")
 
             else:
-                LOGGER.error(f"│   └── Schematic NOT found: '{schematic_name}'")
+                logger.error(f"│   └── Schematic NOT found: '{schematic_name}'")
                 raise ValueError(f"Schematic '{schematic_name}' is missing.")
 
         except Exception as e:
-            LOGGER.critical(f"│   └── Critical error in frequency config: {e}")
+            logger.critical(f"│   └── Critical error in frequency config: {e}")
             raise
 
     def _get_schematic_obstacles(self, schematic: Any, exclude_points: List[Tuple[float, float]]) -> Tuple[Set[Tuple[float, float]], List[Tuple[float, float, float, float]]]:
@@ -159,11 +159,11 @@ class Schematic:
                 if self._is_path_clear(path, pins, wires):
                     best_path = path
                     if idx > 1:
-                        LOGGER.debug(f"│   ├── Route adjusted to candidate {idx+1} to avoid channel overlap.")
+                        logger.debug(f"│   ├── Route adjusted to candidate {idx + 1} to avoid channel overlap.")
                     break
 
             if not best_path:
-                LOGGER.warning(f"│   ├── Congested area detected. Forcing standard overlap route to preserve connectivity.")
+                logger.warning(f"│   ├── Congested area detected. Forcing standard overlap route to preserve connectivity.")
                 best_path = candidate_paths[0]
 
             for i in range(len(best_path) - 1):
@@ -172,16 +172,16 @@ class Schematic:
                 if (px1 != px2) or (py1 != py2):
                     schematic.Wires.Add(px1, py1, px2, py2)
 
-            LOGGER.debug(f"│   ├── Drawn smart channel-aware wire with {len(best_path)-1} segment(s).")
+            logger.debug(f"│   ├── Drawn smart channel-aware wire with {len(best_path) - 1} segment(s).")
             return True
 
         except Exception as e:
-            LOGGER.error(f"│   ├── Failed to draw wire from ({x1}, {y1}) to ({x2}, {y2}). Details: {e}")
+            logger.error(f"│   ├── Failed to draw wire from ({x1}, {y1}) to ({x2}, {y2}). Details: {e}")
             return False
 
 
 if __name__ == "__main__":
-    LOGGER.info("├── Starting standalone test sequence for schematic.py")
+    logger.info("├── Starting standalone test sequence for schematic.py")
     try:
         test_app = mwoffice.CMWOffice()
         schematic_service = Schematic(test_app)
@@ -194,7 +194,7 @@ if __name__ == "__main__":
         # Test routing dummy coordinates
         schematic_service.add_wire(test_schematic, 0, 0, 1000, 1000)
 
-        LOGGER.info("└── Test execution sequence completed successfully.")
+        logger.info("└── Test execution sequence completed successfully.")
     except Exception as ex:
-        LOGGER.critical(f"└── Test execution failed: {ex}")
+        logger.critical(f"└── Test execution failed: {ex}")
         sys.exit(1)

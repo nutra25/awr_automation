@@ -18,7 +18,7 @@ from shapely.geometry import Polygon
 from shapely.ops import unary_union
 import matplotlib.pyplot as plt
 import skrf as rf
-from core.logger import LOGGER
+from core.logger import logger
 
 
 @dataclass
@@ -53,15 +53,15 @@ class MaxMarkerSelector(BasePointSelector):
     """
 
     def select_point(self, context: Any, graph_name: str, export_subpath: str = "") -> Tuple[str, str, str]:
-        LOGGER.info(f"Initiating MaxMarkerSelector for graph: {graph_name}")
+        logger.info(f"Initiating MaxMarkerSelector for graph: {graph_name}")
 
         data = context.driver.graph.get_marker_data(graph_name, self.config.marker1_name)
 
         if not data:
-            LOGGER.warning("└── Failed to retrieve valid marker data. Returning default fallback values.")
+            logger.warning("└── Failed to retrieve valid marker data. Returning default fallback values.")
             return "0", "0", "0"
 
-        LOGGER.info(f"└── Successfully acquired marker coordinates: Magnitude={data[1]}, Angle={data[2]}")
+        logger.info(f"└── Successfully acquired marker coordinates: Magnitude={data[1]}, Angle={data[2]}")
         return str(data), str(data[1]), str(data[2])
 
 
@@ -71,13 +71,13 @@ class TradeOffSelector(BasePointSelector):
     """
 
     def select_point(self, context: Any, graph_name: str, export_subpath: str = "") -> Tuple[str, str, str]:
-        LOGGER.info(f"Initiating TradeOffSelector between markers '{self.config.marker1_name}' and '{self.config.marker2_name}'")
+        logger.info(f"Initiating TradeOffSelector between markers '{self.config.marker1_name}' and '{self.config.marker2_name}'")
 
         d1 = context.driver.graph.get_marker_data(graph_name, self.config.marker1_name)
         d2 = context.driver.graph.get_marker_data(graph_name, self.config.marker2_name)
 
         if not d1 or not d2:
-            LOGGER.warning("└── Incomplete marker data retrieved. Returning default fallback values.")
+            logger.warning("└── Incomplete marker data retrieved. Returning default fallback values.")
             return "0", "0", "0"
 
         w1 = self.config.tradeoff_weight
@@ -87,7 +87,7 @@ class TradeOffSelector(BasePointSelector):
         avg_ang = (d1[2] * w1) + (d2[2] * w2)
         avg_val = (d1 * w1) + (d2 * w2)
 
-        LOGGER.info(f"└── Calculated weighted trade-off point: Magnitude={avg_mag:.4f}, Angle={avg_ang:.2f}")
+        logger.info(f"└── Calculated weighted trade-off point: Magnitude={avg_mag:.4f}, Angle={avg_ang:.2f}")
         return str(avg_val), str(avg_mag), str(avg_ang)
 
 
@@ -97,7 +97,7 @@ class BroadbandOptimumSelector(BasePointSelector):
     """
 
     def select_point(self, context: Any, graph_name: str, export_subpath: str = "") -> Tuple[str, str, str]:
-        LOGGER.info(f"Initiating BroadbandOptimumSelector for graph: {graph_name}")
+        logger.info(f"Initiating BroadbandOptimumSelector for graph: {graph_name}")
 
         freq_geoms, freqs, num_freqs = self._fetch_and_process_contours(context.driver, graph_name)
 
@@ -107,7 +107,7 @@ class BroadbandOptimumSelector(BasePointSelector):
         best_intersection, best_state, worst_case_pae = self._find_best_intersection(freq_geoms, freqs, num_freqs)
 
         if best_state is None or best_intersection is None:
-            LOGGER.error("└── Failed to isolate a common broadband intersection area.")
+            logger.error("└── Failed to isolate a common broadband intersection area.")
             return "0", "0", "0"
 
         if best_intersection.geom_type in ['MultiPolygon', 'GeometryCollection']:
@@ -127,35 +127,35 @@ class BroadbandOptimumSelector(BasePointSelector):
             mag = math.hypot(cx, cy)
             ang = math.degrees(math.atan2(cy, cx))
 
-            LOGGER.info(f"├── Optimal intersection identified with worst-case PAE threshold: {worst_case_pae}")
-            LOGGER.info(f"├── Target centroid calculated at Magnitude={mag:.4f}, Angle={ang:.2f}°")
+            logger.info(f"├── Optimal intersection identified with worst-case PAE threshold: {worst_case_pae}")
+            logger.info(f"├── Target centroid calculated at Magnitude={mag:.4f}, Angle={ang:.2f}°")
 
             if self.config.show_plot and context.exporter:
                 self._generate_plot(graph_name, freqs, num_freqs, freq_geoms, best_state, geoms_to_plot, cx, cy, context.exporter, export_subpath)
                 self._generate_plot_3d_plotly(graph_name, freqs, num_freqs, freq_geoms, best_state, geoms_to_plot, cx, cy, context.exporter, export_subpath)
             elif self.config.show_plot and not context.exporter:
-                LOGGER.warning("└── Visualization is enabled, but no DataExporter was provided in context. Skipping plot generation.")
+                logger.warning("└── Visualization is enabled, but no DataExporter was provided in context. Skipping plot generation.")
             else:
-                LOGGER.info("└── Visualization is disabled; skipping plot generation.")
+                logger.info("└── Visualization is disabled; skipping plot generation.")
 
             return str(worst_case_pae), str(mag), str(ang)
         else:
-            LOGGER.error("└── Failed to extract a valid polygon geometry from the intersection results.")
+            logger.error("└── Failed to extract a valid polygon geometry from the intersection results.")
             return "0", "0", "0"
 
     def _fetch_and_process_contours(self, driver: Any, graph_name: str) -> Tuple[Dict, List[float], int]:
-        LOGGER.info("├── Retrieving broadband contour datasets from the application environment")
+        logger.info("├── Retrieving broadband contour datasets from the application environment")
 
         data_by_freq = driver.graph.get_broadband_contours(graph_name)
 
         if not data_by_freq:
-            LOGGER.error("└── Aborting: Unreadable or empty contour data retrieved.")
+            logger.error("└── Aborting: Unreadable or empty contour data retrieved.")
             return {}, [], 0
 
         freq_geoms = {}
         freqs = sorted(list(data_by_freq.keys()))
 
-        LOGGER.info("├── Converting contour datasets into geometric polygon structures")
+        logger.info("├── Converting contour datasets into geometric polygon structures")
 
         num_processed = len(freqs)
         for idx, freq in enumerate(freqs):
@@ -182,7 +182,7 @@ class BroadbandOptimumSelector(BasePointSelector):
                 freq_geoms[freq] = geoms_list
 
             prefix = "└──" if idx == num_processed - 1 else "├──"
-            LOGGER.debug(f"{prefix} Processed {len(geoms_list)} valid contours for {freq / 1e9:.2f} GHz")
+            logger.debug(f"{prefix} Processed {len(geoms_list)} valid contours for {freq / 1e9:.2f} GHz")
 
         valid_freqs = [f for f in freqs if f in freq_geoms]
         return freq_geoms, valid_freqs, len(valid_freqs)
@@ -193,8 +193,8 @@ class BroadbandOptimumSelector(BasePointSelector):
         best_intersection = None
         step = 0
 
-        LOGGER.info("├── Executing intersection search algorithm")
-        LOGGER.debug("├── Phase 1: Establishing common baseline intersection area")
+        logger.info("├── Executing intersection search algorithm")
+        logger.debug("├── Phase 1: Establishing common baseline intersection area")
 
         while True:
             current_geom = freq_geoms[freqs[0]][state[0]]['geom']
@@ -217,7 +217,7 @@ class BroadbandOptimumSelector(BasePointSelector):
                 best_intersection = current_geom
                 best_state = list(state)
                 min_base_pae = min([freq_geoms[freqs[i]][state[i]]['pae'] for i in range(num_freqs)])
-                LOGGER.debug(f"├── Common baseline discovered at iteration step {step} with minimum PAE of {min_base_pae}")
+                logger.debug(f"├── Common baseline discovered at iteration step {step} with minimum PAE of {min_base_pae}")
                 break
 
             current_paes = []
@@ -226,7 +226,7 @@ class BroadbandOptimumSelector(BasePointSelector):
                     current_paes.append((freq_geoms[freqs[i]][state[i]]['pae'], i))
 
             if not current_paes:
-                LOGGER.warning("├── Base intersection discovery exhausted all contour levels without success")
+                logger.warning("├── Base intersection discovery exhausted all contour levels without success")
                 break
 
             max_pae_in_current_state = max(current_paes, key=lambda x: x[0])[0]
@@ -236,7 +236,7 @@ class BroadbandOptimumSelector(BasePointSelector):
             step += 1
 
         if best_intersection is not None:
-            LOGGER.debug("├── Phase 2: Applying limiter-biased optimization logic")
+            logger.debug("├── Phase 2: Applying limiter-biased optimization logic")
             pass_num = 1
             limiting_order = []
             for i in range(num_freqs):
@@ -265,10 +265,10 @@ class BroadbandOptimumSelector(BasePointSelector):
                             improvement_in_this_pass = True
                             freq_ghz = freqs[i] / 1e9
                             new_pae = freq_geoms[freqs[i]][state[i]]['pae']
-                            LOGGER.debug(f"├── [Iteration {pass_num}] Optimized {freq_ghz:.2f} GHz contour upward. Adjusted PAE: {new_pae}")
+                            logger.debug(f"├── [Iteration {pass_num}] Optimized {freq_ghz:.2f} GHz contour upward. Adjusted PAE: {new_pae}")
 
                 if not improvement_in_this_pass:
-                    LOGGER.debug("├── Optimization process converged to a stable state")
+                    logger.debug("├── Optimization process converged to a stable state")
                     break
                 pass_num += 1
 
@@ -278,7 +278,7 @@ class BroadbandOptimumSelector(BasePointSelector):
     def _generate_plot(self, graph_name: str, freqs: List[float], num_freqs: int, freq_geoms: Dict,
                        best_state: List[int], geoms_to_plot: List[Any], cx: float, cy: float,
                        exporter: Any, export_subpath: str):
-        LOGGER.info("├── Generating 2D vector graphic rendering of the intersection dataset")
+        logger.info("├── Generating 2D vector graphic rendering of the intersection dataset")
 
         plt.figure(figsize=(14, 12), dpi=120)
         rf.plotting.smith(draw_labels=True)
@@ -324,7 +324,7 @@ class BroadbandOptimumSelector(BasePointSelector):
             filename = os.path.join(export_subpath, f"{graph_name}_2D.svg")
             exporter.save_binary(filename, buf.getvalue())
         except Exception as e:
-            LOGGER.error(f"├── Encountered an error during 2D graphic memory serialization: {e}")
+            logger.error(f"├── Encountered an error during 2D graphic memory serialization: {e}")
         finally:
             plt.close()
             buf.close()
@@ -332,7 +332,7 @@ class BroadbandOptimumSelector(BasePointSelector):
     def _generate_plot_3d_plotly(self, graph_name: str, freqs: List[float], num_freqs: int, freq_geoms: Dict,
                                  best_state: List[int], geoms_to_plot: List[Any], cx: float, cy: float,
                                  exporter: Any, export_subpath: str):
-        LOGGER.info("├── Generating Advanced Interactive 3D Plotly rendering (Z-Axis = PAE)")
+        logger.info("├── Generating Advanced Interactive 3D Plotly rendering (Z-Axis = PAE)")
 
         fig = go.Figure()
         trace_metadata = []
@@ -547,4 +547,4 @@ class BroadbandOptimumSelector(BasePointSelector):
             filename = os.path.join(export_subpath, f"{graph_name}_3D.html")
             exporter.save_text(filename, html_content)
         except Exception as e:
-            LOGGER.error(f"└── Encountered an error during 3D HTML text serialization: {e}")
+            logger.error(f"└── Encountered an error during 3D HTML text serialization: {e}")

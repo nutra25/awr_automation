@@ -1,5 +1,5 @@
 import os
-from core.logger import LOGGER
+from core.logger import logger
 
 
 def save_project_as(app_instance: any, save_path: str) -> None:
@@ -10,7 +10,7 @@ def save_project_as(app_instance: any, save_path: str) -> None:
     # AWR requires a strict absolute path to prevent saving to default directories
     absolute_save_path = os.path.abspath(save_path)
 
-    LOGGER.info(f"├── Initiating project save operation to target path: {absolute_save_path}")
+    logger.info(f"├── Initiating project save operation to target path: {absolute_save_path}")
 
     try:
         project = app_instance.Project
@@ -19,7 +19,7 @@ def save_project_as(app_instance: any, save_path: str) -> None:
         project.SaveAs(absolute_save_path)
 
         active_project_name = project.Name
-        LOGGER.info(f"└── Successfully saved active project as: {active_project_name}")
+        logger.info(f"└── Successfully saved active project as: {active_project_name}")
 
     except Exception as e:
-        LOGGER.error(f"└── Failed to execute project save operation. Error details: {e}")
+        logger.error(f"└── Failed to execute project save operation. Error details: {e}")

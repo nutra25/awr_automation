@@ -12,7 +12,7 @@ import json
 from dataclasses import dataclass
 from typing import List, Dict, Any
 
-from core.logger import LOGGER
+from core.logger import logger
 
 
 @dataclass
@@ -42,7 +42,7 @@ class DataExporter:
         """
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
-            LOGGER.debug(f"├── Created target directory: {path}")
+            logger.debug(f"├── Created target directory: {path}")
 
     def _get_filepath(self, filename: str) -> str:
         """
@@ -55,15 +55,15 @@ class DataExporter:
         Creates a new CSV file and writes the header row.
         """
         filepath = self._get_filepath(filename)
-        LOGGER.info(f"├── Initializing CSV storage file at: {filepath}")
+        logger.info(f"├── Initializing CSV storage file at: {filepath}")
         try:
             with open(filepath, mode='w', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
                 writer.writerow(headers)
-            LOGGER.info(f"└── Successfully generated headers for {filename}.")
+            logger.info(f"└── Successfully generated headers for {filename}.")
             return True
         except IOError as e:
-            LOGGER.error(f"└── Failed to initialize CSV file {filename}. Critical error: {e}")
+            logger.error(f"└── Failed to initialize CSV file {filename}. Critical error: {e}")
             return False
 
     def append_csv_row(self, filename: str, row_data: List[Any]) -> None:
@@ -76,22 +76,22 @@ class DataExporter:
                 writer = csv.writer(file)
                 writer.writerow(row_data)
         except IOError as e:
-            LOGGER.error(f"├── Write operation failed for {filename}. Target row dropped.")
-            LOGGER.error(f"└── Error details: {e}")
+            logger.error(f"├── Write operation failed for {filename}. Target row dropped.")
+            logger.error(f"└── Error details: {e}")
 
     def save_json(self, filename: str, data: Dict[str, Any]) -> bool:
         """
         Serializes a dictionary to a JSON file format.
         """
         filepath = self._get_filepath(filename)
-        LOGGER.info(f"├── Commencing JSON serialization to: {filepath}")
+        logger.info(f"├── Commencing JSON serialization to: {filepath}")
         try:
             with open(filepath, mode='w', encoding='utf-8') as file:
                 json.dump(data, file, indent=4)
-            LOGGER.info(f"└── JSON export sequence completed successfully for {filename}.")
+            logger.info(f"└── JSON export sequence completed successfully for {filename}.")
             return True
         except (IOError, TypeError) as e:
-            LOGGER.error(f"└── Failed to execute JSON export. Error details: {e}")
+            logger.error(f"└── Failed to execute JSON export. Error details: {e}")
             return False
 
     def save_text(self, filename: str, content: str) -> bool:
@@ -99,14 +99,14 @@ class DataExporter:
         Saves raw string content to a text-based file (e.g., HTML, TXT, XML).
         """
         filepath = self._get_filepath(filename)
-        LOGGER.info(f"├── Saving text-based content to: {filepath}")
+        logger.info(f"├── Saving text-based content to: {filepath}")
         try:
             with open(filepath, mode='w', encoding='utf-8') as file:
                 file.write(content)
-            LOGGER.info(f"└── Text export sequence completed successfully for {filename}.")
+            logger.info(f"└── Text export sequence completed successfully for {filename}.")
             return True
         except IOError as e:
-            LOGGER.error(f"└── Failed to save text file {filename}. Error details: {e}")
+            logger.error(f"└── Failed to save text file {filename}. Error details: {e}")
             return False
 
     def save_binary(self, filename: str, data: bytes) -> bool:
@@ -114,14 +114,14 @@ class DataExporter:
         Saves raw byte data to a binary file (e.g., PNG, JPG, PDF, SVG).
         """
         filepath = self._get_filepath(filename)
-        LOGGER.info(f"├── Saving binary content to: {filepath}")
+        logger.info(f"├── Saving binary content to: {filepath}")
         try:
             with open(filepath, mode='wb') as file:
                 file.write(data)
-            LOGGER.info(f"└── Binary export sequence completed successfully for {filename}.")
+            logger.info(f"└── Binary export sequence completed successfully for {filename}.")
             return True
         except IOError as e:
-            LOGGER.error(f"└── Failed to save binary file {filename}. Error details: {e}")
+            logger.error(f"└── Failed to save binary file {filename}. Error details: {e}")
             return False
 
     def resolve_external_path(self, filename: str) -> str:
@@ -130,18 +130,18 @@ class DataExporter:
         while tracking the action in the logs.
         """
         filepath = os.path.abspath(self._get_filepath(filename))
-        LOGGER.debug(f"├── Resolved external export path: {filepath}")
+        logger.debug(f"├── Resolved external export path: {filepath}")
         return filepath
 
 
 if __name__ == "__main__":
     import sys
-    LOGGER.info("├── Starting standalone test sequence for dataexporter.py")
+    logger.info("├── Starting standalone test sequence for dataexporter.py")
     try:
         test_config = DataExporterConfig(base_directory="./test_export_dir")
         exporter = DataExporter(config=test_config)
-        LOGGER.info(f"│   ├── Exporter configured with base directory: {exporter.config.base_directory}")
-        LOGGER.info("└── Test execution sequence completed successfully")
+        logger.info(f"│   ├── Exporter configured with base directory: {exporter.config.base_directory}")
+        logger.info("└── Test execution sequence completed successfully")
     except Exception as ex:
-        LOGGER.critical(f"└── Test execution failed: {ex}")
+        logger.critical(f"└── Test execution failed: {ex}")
         sys.exit(1)

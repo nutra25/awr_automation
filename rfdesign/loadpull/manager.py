@@ -8,7 +8,7 @@ Strictly adheres to the tree-branch logging hierarchy and testing protocols.
 from typing import Any, Tuple, Dict, List
 from dataclasses import dataclass
 from rfdesign.loadpull.models import PullResult
-from core.logger import LOGGER
+from core.logger import logger
 
 from rfdesign.loadpull.handlers import HandlersConfig
 from rfdesign.loadpull.sequence import SequenceConfig, LoadPullSequence
@@ -39,6 +39,6 @@ class LoadPullManager:
         )
 
     def execute_sequence(self, export_subpath: str) -> Tuple[Dict, List[PullResult], Tuple]:
-        LOGGER.info("│   ├── Initiating Load-Pull Sequence...")
+        logger.info("│   ├── Initiating Load-Pull Sequence...")
         return self.sequence.execute(export_subpath)
 

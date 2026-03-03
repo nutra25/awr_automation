@@ -9,7 +9,7 @@ Strictly adheres to the tree-branch logging hierarchy.
 from typing import Any
 from dataclasses import dataclass
 from engine.models import StateType
-from core.logger import LOGGER
+from core.logger import logger
 
 
 @dataclass
@@ -36,12 +36,12 @@ class StateHandler:
         }
 
     def _handle_element_state(self, config_obj: Any, value: Any) -> None:
-        LOGGER.debug(f"│   ├── Updating element state for {config_obj.name}: {value}")
+        logger.debug(f"│   ├── Updating element state for {config_obj.name}: {value}")
         for elem in config_obj.element:
             self.circuit.configure_element(self.config.schematic_name, elem.name, {elem.arg: str(value)})
 
     def _handle_frequency_state(self, config_obj: Any, value: Any) -> None:
-        LOGGER.debug(f"│   ├── Updating system frequency to: {value}")
+        logger.debug(f"│   ├── Updating system frequency to: {value}")
         if isinstance(value, (list, tuple)):
             freq_val = [float(v) for v in value]
         else:
@@ -53,4 +53,4 @@ class StateHandler:
         if handler:
             handler(config_obj, value)
         else:
-            LOGGER.error(f"├── Unsupported StateType encountered: {config_obj.type}")
+            logger.error(f"├── Unsupported StateType encountered: {config_obj.type}")

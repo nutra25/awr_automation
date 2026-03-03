@@ -1,6 +1,6 @@
 import math
 from typing import Dict, List, Any
-from core.logger import LOGGER
+from core.logger import logger
 
 def extract_graph_data(app_instance: Any, graph_name: str) -> Dict[float, List[Dict[str, Any]]]:
     """
@@ -21,41 +21,41 @@ def extract_graph_data(app_instance: Any, graph_name: str) -> Dict[float, List[D
     Raises:
         Exception: For any critical failures during data extraction
     """
-    LOGGER.info(f"Starting Data Extraction Sequence for Graph: {graph_name}")
+    logger.info(f"Starting Data Extraction Sequence for Graph: {graph_name}")
     
     try:
         project = app_instance.Project
         
         if not project.Graphs.Exists(graph_name):
-            LOGGER.critical(f"  └─ Graph NOT found in AWR system: {graph_name}")
+            logger.critical(f"  └─ Graph NOT found in AWR system: {graph_name}")
             return {}
             
-        LOGGER.debug("  ├─ Graph located Instantiating data structures")
+        logger.debug("  ├─ Graph located Instantiating data structures")
         
         graph = project.Graphs(graph_name)
         data_by_freq = {}
 
         try:
             # Simulation steps are logged as DEBUG to keep the console output clean
-            LOGGER.debug("  ├── Starting Simulation (Analyze)...")
+            logger.debug("  ├── Starting Simulation (Analyze)...")
             simulator = project.Simulator
             simulator.Analyze()
-            LOGGER.debug("  ├── Simulation Completed.")
+            logger.debug("  ├── Simulation Completed.")
         except Exception as sim_error:
-            LOGGER.critical(f"  └─ Simulation FAILED: {sim_error}")
+            logger.critical(f"  └─ Simulation FAILED: {sim_error}")
             raise RuntimeError(f"Simulation execution failed: {sim_error}")
         
         meas_items = list(graph.Measurements)
         total_meas = len(meas_items)
         
-        LOGGER.info("  ├── Extracting Measurement Traces:")
+        logger.info("  ├── Extracting Measurement Traces:")
         
         for m_idx, meas in enumerate(meas_items):
             is_last_meas = (m_idx == total_meas - 1)
             tree_char_m = "└──" if is_last_meas else "├──"
             
             if not meas.Enabled:
-                LOGGER.debug(f"  │   {tree_char_m} Measurement {meas.Name}: SKIPPED (Disabled)")
+                logger.debug(f"  │   {tree_char_m} Measurement {meas.Name}: SKIPPED (Disabled)")
                 continue
                 
             for i in range(1, meas.TraceCount + 1):
@@ -126,11 +126,11 @@ def extract_graph_data(app_instance: Any, graph_name: str) -> Dict[float, List[D
                         
                 except Exception as e:
                     if i == 1:
-                        LOGGER.error(f"  │   {tree_char_m} Trace #{i} read FAILED -> {e}")
+                        logger.error(f"  │   {tree_char_m} Trace #{i} read FAILED -> {e}")
                         
-        LOGGER.info("  └── Data Extraction Process Completed Successfully")
+        logger.info("  └── Data Extraction Process Completed Successfully")
         return data_by_freq
         
     except Exception as e:
-        LOGGER.critical(f"  └─ Critical Error in Graph Data Extraction: {e}")
+        logger.critical(f"  └─ Critical Error in Graph Data Extraction: {e}")
         raise

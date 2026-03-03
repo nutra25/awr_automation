@@ -8,7 +8,7 @@ Strictly adheres to the tree-branch logging hierarchy and Context architecture.
 
 from typing import Dict, Any, List
 from dataclasses import dataclass, field
-from core.logger import LOGGER
+from core.logger import logger
 from awr.graph.manager import GraphType
 from awr.data_file.new_data_file import DataFileType
 
@@ -41,31 +41,31 @@ def create_loadpull_project(context: Any) -> bool:
     Executes the comprehensive sequence to build a Load-Pull project environment.
     Utilizes the global AutomationContext for dependencies and configuration.
     """
-    LOGGER.info("├── Initiating Load-Pull Project Creation Sequence...")
+    logger.info("├── Initiating Load-Pull Project Creation Sequence...")
 
     try:
         driver = context.driver
         config = context.config.rf_design.project_generation
 
         # Initialize New Project with specific library
-        LOGGER.info("│   ├── Step 1: Initializing new project environment...")
+        logger.info("│   ├── Step 1: Initializing new project environment...")
         if hasattr(driver.project, 'new_project_with_library'):
             driver.project.new_project_with_library(config.library_path)
         else:
-            LOGGER.warning("│   │   ├── Method 'new_project_with_library' not explicitly found in Manager.")
+            logger.warning("│   │   ├── Method 'new_project_with_library' not explicitly found in Manager.")
 
         # Create Load Pull Template via Wizard
-        LOGGER.info("│   ├── Step 2: Generating Load-Pull schematic template...")
+        logger.info("│   ├── Step 2: Generating Load-Pull schematic template...")
         if hasattr(driver.wizard, 'create_load_pull_template'):
             template_success = driver.wizard.create_load_pull_template()
             if not template_success:
-                LOGGER.error("│   └── Sequence aborted: Failed to generate schematic template.")
+                logger.error("│   └── Sequence aborted: Failed to generate schematic template.")
                 return False
         else:
-            LOGGER.warning("│   │   ├── Method 'create_load_pull_template' not explicitly found in Manager.")
+            logger.warning("│   │   ├── Method 'create_load_pull_template' not explicitly found in Manager.")
 
         # Replace the default transistor/element with the target library component
-        LOGGER.info(f"│   ├── Step 3: Replacing element '{config.target_element}' and applying routing matrix...")
+        logger.info(f"│   ├── Step 3: Replacing element '{config.target_element}' and applying routing matrix...")
         replacement_success = driver.circuit.replace_element(
             schematic_name=config.schematic_name,
             target=config.target_element,
@@ -74,11 +74,11 @@ def create_loadpull_project(context: Any) -> bool:
         )
 
         if not replacement_success:
-            LOGGER.error("│   └── Sequence aborted: Element replacement failed.")
+            logger.error("│   └── Sequence aborted: Element replacement failed.")
             return False
 
         # Replace the input port element
-        LOGGER.info(f"│   ├── Step 3: Replacing element {config.input_port_target} and applying routing matrix...")
+        logger.info(f"│   ├── Step 3: Replacing element {config.input_port_target} and applying routing matrix...")
         replacement_success = driver.circuit.replace_element(
             schematic_name=config.schematic_name,
             target=config.input_port_target,
@@ -87,11 +87,11 @@ def create_loadpull_project(context: Any) -> bool:
         )
 
         if not replacement_success:
-            LOGGER.error("│   └── Sequence aborted: Input port replacement failed.")
+            logger.error("│   └── Sequence aborted: Input port replacement failed.")
             return False
 
         # Generate the required Data Files, Graphs, and Measurements
-        LOGGER.info(f"│   ├── Step 4: Generating operational infrastructure for {config.iterations} iterations...")
+        logger.info(f"│   ├── Step 4: Generating operational infrastructure for {config.iterations} iterations...")
 
         for i in range(1, config.iterations + 1):
             for pull_mode in config.pull_modes:
@@ -99,7 +99,7 @@ def create_loadpull_project(context: Any) -> bool:
                 graph_name = f"it{i}_{pull_mode}_pull"
                 source_doc = df_name
 
-                LOGGER.debug(f"│   │   ├── Setting up infrastructure for Iteration {i} ({pull_mode.capitalize()} Pull)")
+                logger.debug(f"│   │   ├── Setting up infrastructure for Iteration {i} ({pull_mode.capitalize()} Pull)")
 
                 driver.data_file.add_new(file_name=df_name, file_type=DataFileType.GMDIFD)
                 driver.graph.add_new_graph(graph_name=graph_name, graph_type=GraphType.SMITH_CHART)
@@ -118,10 +118,10 @@ def create_loadpull_project(context: Any) -> bool:
         driver.graph.add_and_move_marker(graph_name=config.results_graph_name, measurement_name=config.results_pwr_meas, marker_name="MinPwr", action="MIN")
         driver.graph.add_and_move_marker(graph_name=config.results_graph_name, measurement_name=config.results_pwr_meas, marker_name="MaxPwr", action="MAX")
 
-        LOGGER.info("└── Load-Pull Project Creation Sequence Finalized Successfully.")
+        logger.info("└── Load-Pull Project Creation Sequence Finalized Successfully.")
         driver.project.save_current_project_as(save_path=config.save_path)
         return True
 
     except Exception as e:
-        LOGGER.error(f"└── Unhandled exception during project creation sequence: {e}")
+        logger.error(f"└── Unhandled exception during project creation sequence: {e}")
         return False

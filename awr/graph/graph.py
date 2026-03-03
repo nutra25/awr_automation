@@ -11,7 +11,7 @@ import re
 from enum import Enum
 from typing import Any
 import pyawr.mwoffice as mwoffice
-from core.logger import LOGGER
+from core.logger import logger
 
 
 class GraphType(Enum):
@@ -63,10 +63,10 @@ class Graph:
         Returns:
             bool: True if the graph was created successfully, False otherwise.
         """
-        LOGGER.info(f"├── Attempting to create new graph: '{graph_name}' (Type: {graph_type.name})")
+        logger.info(f"├── Attempting to create new graph: '{graph_name}' (Type: {graph_type.name})")
 
         if not re.match(r'^[A-Za-z0-9_ ]+$', graph_name):
-            LOGGER.error("└── Invalid graph name. Only alphanumeric characters, underscores, and spaces are permitted.")
+            logger.error("└── Invalid graph name. Only alphanumeric characters, underscores, and spaces are permitted.")
             return False
 
         try:
@@ -74,15 +74,15 @@ class Graph:
 
             for i in range(1, graphs.Count + 1):
                 if graphs.Item(i).Name == graph_name:
-                    LOGGER.warning(f"└── Graph '{graph_name}' already exists. Creation aborted.")
+                    logger.warning(f"└── Graph '{graph_name}' already exists. Creation aborted.")
                     return False
 
             graphs.Add(graph_name, graph_type.value)
-            LOGGER.info(f"└── Successfully created graph: '{graph_name}'")
+            logger.info(f"└── Successfully created graph: '{graph_name}'")
             return True
 
         except Exception as e:
-            LOGGER.error(f"└── Failed to create graph '{graph_name}'. Exception: {e}")
+            logger.error(f"└── Failed to create graph '{graph_name}'. Exception: {e}")
             return False
 
     def set_graph_marker_display_format(self, graph_name: str, display_format: MarkerDisplayFormat) -> bool:
@@ -96,26 +96,26 @@ class Graph:
         Returns:
             bool: True if the format was updated successfully, False otherwise.
         """
-        LOGGER.info(f"├── Attempting to set marker format for graph '{graph_name}' to '{display_format.name}'")
+        logger.info(f"├── Attempting to set marker format for graph '{graph_name}' to '{display_format.name}'")
 
         try:
             if not self.app.Project.Graphs.Exists(graph_name):
-                LOGGER.error(f"└── Target graph '{graph_name}' does not exist.")
+                logger.error(f"└── Target graph '{graph_name}' does not exist.")
                 return False
 
             graph = self.app.Project.Graphs(graph_name)
             graph.Markers.Options.DisplayFormat = display_format.value
 
-            LOGGER.info(f"└── Successfully updated marker format for '{graph_name}'.")
+            logger.info(f"└── Successfully updated marker format for '{graph_name}'.")
             return True
 
         except Exception as e:
-            LOGGER.error(f"└── Failed to update marker format for '{graph_name}'. Exception: {e}")
+            logger.error(f"└── Failed to update marker format for '{graph_name}'. Exception: {e}")
             return False
 
 
 if __name__ == "__main__":
-    LOGGER.info("├── Starting standalone test sequence for graph.py")
+    logger.info("├── Starting standalone test sequence for graph.py")
     try:
         test_app = mwoffice.CMWOffice()
         graph_service = Graph(test_app)
@@ -123,7 +123,7 @@ if __name__ == "__main__":
         test_graph_name = "Automated Test Rectangular"
         graph_service.create_new_graph(test_graph_name, GraphType.RECTANGULAR)
 
-        LOGGER.info("└── Test execution sequence completed successfully.")
+        logger.info("└── Test execution sequence completed successfully.")
     except Exception as ex:
-        LOGGER.critical(f"└── Test execution failed: {ex}")
+        logger.critical(f"└── Test execution failed: {ex}")
         sys.exit(1)

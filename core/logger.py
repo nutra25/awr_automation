@@ -142,7 +142,7 @@ def setup_universal_logger(config: LoggerConfig) -> logging.Logger:
 # Global instance fallback to maintain compatibility with legacy imports
 # that expect a pre-configured logger without explicit dependency injection.
 _default_logger_config = LoggerConfig(log_dir=default_paths.logs_dir)
-LOGGER = setup_universal_logger(_default_logger_config)
+logger = setup_universal_logger(_default_logger_config)
 
 
 if __name__ == "__main__":

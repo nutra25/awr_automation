@@ -11,7 +11,7 @@ import sys
 import re
 from typing import Any
 
-from core.logger import LOGGER
+from core.logger import logger
 
 
 class DataFileType(Enum):
@@ -41,11 +41,11 @@ def add_new_data_file(app: Any, file_name: str, file_type: DataFileType = DataFi
     Returns:
         bool: True if the file was created successfully, False otherwise.
     """
-    LOGGER.info(f"├── Attempting to create new data file: '{file_name}' (Type: {file_type.name})")
+    logger.info(f"├── Attempting to create new data file: '{file_name}' (Type: {file_type.name})")
 
     # Validation: AWR strictly prefers A-Z, a-z, 0-9, and underscores for data files.
     if not re.match(r'^[A-Za-z0-9_]+$', file_name):
-        LOGGER.error("└── Invalid file name. Only alphanumeric characters and underscores are permitted.")
+        logger.error("└── Invalid file name. Only alphanumeric characters and underscores are permitted.")
         return False
 
     try:
@@ -54,26 +54,26 @@ def add_new_data_file(app: Any, file_name: str, file_type: DataFileType = DataFi
         # Verify if a data file with the same name already exists to prevent duplication errors
         for i in range(1, data_files.Count + 1):
             if data_files.Item(i).Name == file_name:
-                LOGGER.warning(f"└── Data file '{file_name}' already exists. Creation aborted.")
+                logger.warning(f"└── Data file '{file_name}' already exists. Creation aborted.")
                 return False
 
         # Create the file using the integer value from the enum
         data_files.AddNew(file_name, file_type.value)
-        LOGGER.info(f"└── Successfully created data file: '{file_name}'")
+        logger.info(f"└── Successfully created data file: '{file_name}'")
         return True
 
     except Exception as e:
-        LOGGER.error(f"└── Failed to create data file '{file_name}'. Exception: {e}")
+        logger.error(f"└── Failed to create data file '{file_name}'. Exception: {e}")
         return False
 
 
 # Standalone Test Execution Block
 if __name__ == "__main__":
-    LOGGER.info("Starting standalone test sequence for new_data_file.py module.")
+    logger.info("Starting standalone test sequence for new_data_file.py module.")
 
     try:
         test_app = mwoffice.CMWOffice()
-        LOGGER.info("├── Successfully connected to AWR Microwave Office for testing.")
+        logger.info("├── Successfully connected to AWR Microwave Office for testing.")
 
         # Test Case 1: Create a standard text data file
         test_name_1 = "Automated_Test_TXT"
@@ -84,15 +84,15 @@ if __name__ == "__main__":
         add_new_data_file(test_app, test_name_2, DataFileType.SNP)
 
         # Test Case 3: Attempt to create a duplicate file to verify error handling
-        LOGGER.info("├── Verifying duplicate file handling logic...")
+        logger.info("├── Verifying duplicate file handling logic...")
         add_new_data_file(test_app, test_name_1, DataFileType.TXT)
 
         # Test Case 4: Verify invalid character prevention (Hyphens/Spaces are usually bad for data files)
-        LOGGER.info("├── Verifying invalid character sanitization logic...")
+        logger.info("├── Verifying invalid character sanitization logic...")
         add_new_data_file(test_app, "Invalid-File-Name", DataFileType.TXT)
 
-        LOGGER.info("└── Test execution sequence completed successfully.")
+        logger.info("└── Test execution sequence completed successfully.")
 
     except Exception as ex:
-        LOGGER.critical(f"└── Test execution failed. Details: {ex}")
+        logger.critical(f"└── Test execution failed. Details: {ex}")
         sys.exit(1)
