@@ -9,7 +9,7 @@ import pyawr.mwoffice as mwoffice
 import sys
 from typing import Any, Optional
 
-from logger.logger import LOGGER
+from core.logger import LOGGER
 
 
 def new_project_with_library(app: Any, library_name: str, library_version: Optional[str] = None) -> bool:

@@ -11,7 +11,7 @@ import sys
 import re
 from typing import Any
 
-from logger.logger import LOGGER
+from core.logger import LOGGER
 
 
 class DataFileType(Enum):

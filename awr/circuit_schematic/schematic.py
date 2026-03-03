@@ -7,10 +7,10 @@ Strictly adheres to the tree-branch logging hierarchy.
 """
 
 import sys
-from typing import Any, List, Tuple, Set, Dict, Union, Optional
+from typing import Any, List, Tuple, Set, Union
 import pyawr.mwoffice as mwoffice
 
-from logger.logger import LOGGER
+from core.logger import LOGGER
 from awr.circuit_schematic.element import Element
 
 

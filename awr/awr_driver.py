@@ -9,7 +9,7 @@ import subprocess
 import os
 import pyawr.mwoffice as mwoffice
 
-from logger.logger import LOGGER
+from core.logger import LOGGER
 
 # Domain Managers Integration
 from awr.project.manager import ProjectManager

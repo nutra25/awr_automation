@@ -10,12 +10,8 @@ import time
 import os
 import sys
 from typing import List, Tuple, Any, Dict, Protocol, Union
-
-from config import EngineConfig, RfDesignConfig
-from logger.logger import LOGGER
-
-# Added explicit import for DataExporterConfig
-from dataexporter.dataexporter import DataExporter, DataExporterConfig
+from core.logger import LOGGER
+from core.context import AutomationContext
 from rfdesign.loadpull.handlers import StateHandler
 from rfdesign.loadpull.manager import LoadPullManager
 
@@ -44,28 +40,25 @@ class ISimulatorDriver(Protocol):
 class SimulationManager:
     """
     Orchestrates the global execution state and delegates domain-specific tasks.
-    Receives specific configuration trees via dependency injection.
+    Receives all dependencies and configurations via the injected Context.
     """
 
-    def __init__(self, driver: ISimulatorDriver, engine_config: EngineConfig, rf_design_config: RfDesignConfig):
-        self.driver = driver
-        self.config = engine_config
-        self.rf_design_config = rf_design_config
+    def __init__(self, context: AutomationContext):
+        self.context = context
 
-        # Fixed DataExporter initialization to use DataExporterConfig
-        exporter_config = DataExporterConfig(base_directory=self.config.run_dir)
-        self.exporter = DataExporter(config=exporter_config)
+        # Extract dependencies from context for easier access
+        self.driver = self.context.driver
+        self.exporter = self.context.exporter
+        self.config = self.context.config.engine
+        self.rf_design_config = self.context.config.rf_design
 
         self.state_handler = StateHandler(
             circuit_manager=self.driver.circuit,
             config=self.rf_design_config.loadpull.handlers
         )
 
-        self.lp_manager = LoadPullManager(
-            driver=self.driver,
-            exporter=self.exporter,
-            config=self.rf_design_config.loadpull
-        )
+        # Pass only the context to the LoadPullManager
+        self.lp_manager = LoadPullManager(self.context)
 
         csv_dir = os.path.join(self.config.run_dir, "csv results")
         os.makedirs(csv_dir, exist_ok=True)

@@ -3,10 +3,10 @@ element.py
 """
 
 import sys
-from typing import Any, Optional, Dict, Union, List, Tuple, Set
+from typing import Any, Optional, Dict, Union, List
 import pyawr.mwoffice as mwoffice
 
-from logger.logger import LOGGER
+from core.logger import LOGGER
 
 class Element:
     """

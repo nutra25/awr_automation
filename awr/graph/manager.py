@@ -11,11 +11,12 @@ from typing import List, Dict, Any, Optional
 from awr.graph.get_broadband_contours import extract_graph_data
 from awr.graph.perform_simulation import perform_simulation
 
+
 # Import the newly encapsulated domain service classes
-from awr.graph.graph import Graph, GraphType
+from awr.graph.graph import Graph, GraphType, MarkerDisplayFormat
 from awr.graph.marker import Marker
 from awr.graph.measurement import Measurement
-from logger.logger import LOGGER
+from core.logger import LOGGER
 
 
 class GraphManager:
@@ -110,6 +111,13 @@ class GraphManager:
             search_val=search_val,
             perform_simulation=perform_simulation
         )
+
+    def set_graph_marker_display_format(self, graph_name: str, display_format: MarkerDisplayFormat) -> bool:
+        """
+        Sets the global display format for all markers on a specified graph.
+        Requires a MarkerFormat enum for strict type safety.
+        """
+        return self.graph_service.set_graph_marker_display_format(graph_name, display_format)
 
 
 if __name__ == "__main__":

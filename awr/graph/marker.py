@@ -8,7 +8,7 @@ Strictly adheres to the tree-branch logging hierarchy.
 import sys
 from typing import Any, Optional
 import pyawr.mwoffice as mwoffice
-from logger.logger import LOGGER
+from core.logger import LOGGER
 from awr.graph.perform_simulation import perform_simulation as run_sim
 
 # Measurement class dependency for measurement toggling functionalities

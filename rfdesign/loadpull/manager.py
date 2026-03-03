@@ -8,7 +8,7 @@ Strictly adheres to the tree-branch logging hierarchy and testing protocols.
 from typing import Any, Tuple, Dict, List
 from dataclasses import dataclass
 from rfdesign.loadpull.models import PullResult
-from logger.logger import LOGGER
+from core.logger import LOGGER
 
 from rfdesign.loadpull.handlers import HandlersConfig
 from rfdesign.loadpull.sequence import SequenceConfig, LoadPullSequence

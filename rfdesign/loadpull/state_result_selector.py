@@ -7,7 +7,7 @@ Operates utilizing embedded configuration nodes for strategy parameters.
 from abc import ABC, abstractmethod
 from typing import List
 from dataclasses import dataclass
-from logger.logger import LOGGER
+from core.logger import LOGGER
 from rfdesign.loadpull.models import PullResult
 
 

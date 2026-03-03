@@ -5,7 +5,7 @@ Strictly adheres to the tree-branch logging hierarchy and error handling protoco
 """
 
 from typing import Any
-from logger.logger import LOGGER
+from core.logger import LOGGER
 
 def perform_simulation(app: Any) -> bool:
     """

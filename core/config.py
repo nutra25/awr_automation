@@ -9,11 +9,10 @@ from typing import List, Dict, Any
 
 from engine.models import State, StateType, Element
 from engine.utils import generate_sweep_values
-from paths import RUN_DIR, CSV_DIR, GRAPHS_DIR, EMP_DIR
+from paths import RUN_DIR, GRAPHS_DIR, EMP_DIR
 
 # Import encapsulated domain-specific configuration nodes
 from rfdesign.loadpull.iteration_point_selector import BroadbandOptimumSelector, PointSelectorConfig
-from rfdesign.loadpull.state_result_selector import LastIterationStrategy, ResultSelectorConfig
 from rfdesign.loadpull.tuner_utils import TunerConfig, TunerSideConfig
 
 from rfdesign.loadpull.handlers import HandlersConfig
@@ -67,8 +66,10 @@ _TUNER_CONFIG = TunerConfig(
 )
 
 _MEASUREMENT_CONFIG = [
-    {"header": "PLoad [dBm]", "graph": "Results", "marker": "MinPwr", "index": 1},
-    {"header": "PAE [%]", "graph": "Results", "marker": "MinPAE", "index": 1}
+    {"header": "PLoad [dBm] (min)", "graph": "Results", "marker": "MinPwr", "update-type":"MIN", "index": 1},
+    {"header": "PAE [%] (min)", "graph": "Results", "marker": "MinPAE", "update-type":"MIN", "index": 1},
+    {"header": "PLoad [dBm] (max)", "graph": "Results", "marker": "MaxPwr", "update-type": "MAX", "index": 1},
+    {"header": "PAE [%] (max)", "graph": "Results", "marker": "MaxPAE", "update-type": "MAX", "index": 1}
 ]
 
 app_config = AppConfig(
@@ -81,7 +82,7 @@ app_config = AppConfig(
         state_cons=[
             State(
                 name="Frekans (GHz)",
-                value=generate_sweep_values(12.7, 13.25, 0.05),
+                value=generate_sweep_values(13, 13, 0.05),
                 type=StateType.RF_FREQUENCY,
             ),
             State(
@@ -147,7 +148,7 @@ app_config = AppConfig(
 
 if __name__ == "__main__":
     import sys
-    from logger.logger import LOGGER
+    from core.logger import LOGGER
     LOGGER.info("├── Testing final configuration tree integration...")
     try:
         LOGGER.info(f"│   ├── App Executable Path: {app_config.awr_path}")

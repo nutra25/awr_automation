@@ -4,8 +4,8 @@ Application entry point.
 Initializes the AWR driver and bootstraps the core simulation engine using the hierarchical AppConfig.
 """
 
-from config import app_config
-from logger.logger import LOGGER
+from core.config import app_config
+from core.logger import LOGGER
 from awr.awr_driver import AWRDriver
 from engine.simulation_manager import SimulationManager
 

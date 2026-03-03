@@ -1,13 +1,15 @@
+
 """
 handlers.py
 Manages the application of state variables to the simulation environment.
-Delegates element and frequency configurations to the circuit manager based on structured configurations.
+Delegates element and frequency configurations to the circuit manager based on context.
 Strictly adheres to the tree-branch logging hierarchy.
 """
 
 from typing import Any
 from dataclasses import dataclass
-from logger.logger import LOGGER
+from engine.models import StateType
+from core.logger import LOGGER
 
 
 @dataclass
@@ -19,15 +21,18 @@ class HandlersConfig:
 class StateHandler:
     """
     Handles state configurations and dispatches them to the appropriate driver interfaces.
+    Operates strictly via the injected AutomationContext.
     """
 
-    def __init__(self, circuit_manager: Any, config: HandlersConfig):
-        self.circuit = circuit_manager
-        self.config = config
+    def __init__(self, context: Any):
+        self.context = context
+
+        self.circuit = self.context.driver.circuit
+        self.config = self.context.config.rf_design.loadpull.handlers
 
         self._state_handlers = {
-            objects.StateType.ELEMENT: self._handle_element_state,
-            objects.StateType.RF_FREQUENCY: self._handle_frequency_state,
+            StateType.ELEMENT: self._handle_element_state,
+            StateType.RF_FREQUENCY: self._handle_frequency_state,
         }
 
     def _handle_element_state(self, config_obj: Any, value: Any) -> None:

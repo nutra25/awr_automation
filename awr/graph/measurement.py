@@ -4,7 +4,7 @@ measurement.py
 import sys
 from typing import Any
 import pyawr.mwoffice as mwoffice
-from logger.logger import LOGGER
+from core.logger import LOGGER
 
 
 class Measurement:

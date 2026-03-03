@@ -11,7 +11,7 @@ import re
 from enum import Enum
 from typing import Any
 import pyawr.mwoffice as mwoffice
-from logger.logger import LOGGER
+from core.logger import LOGGER
 
 
 class GraphType(Enum):
@@ -29,6 +29,14 @@ class GraphType(Enum):
     THREE_DIMENSIONAL = mwoffice.mwGraphType.mwGT_ThreeDim
     CONSTELLATION = mwoffice.mwGraphType.mwGT_Constellation
 
+class MarkerDisplayFormat(Enum):
+    """
+    Enumeration of available marker display formats in AWR Microwave Office.
+    Provides strict type hinting and prevents hard-coded values.
+    """
+    MAGNITUDE_ANGLE = mwoffice.mwGraphMarkerFormat.mwGMF_MagnitudeAngle
+    REAL_IMAGINARY = mwoffice.mwGraphMarkerFormat.mwGMF_RealImaginary
+    DB_MAGNITUDE_ANGLE = mwoffice.mwGraphMarkerFormat.mwGMF_MagnitudeAngle
 
 class Graph:
     """
@@ -75,6 +83,34 @@ class Graph:
 
         except Exception as e:
             LOGGER.error(f"└── Failed to create graph '{graph_name}'. Exception: {e}")
+            return False
+
+    def set_graph_marker_display_format(self, graph_name: str, display_format: MarkerDisplayFormat) -> bool:
+        """
+        Updates the marker display format for a specified graph.
+
+        Args:
+            graph_name (str): The exact name of the target graph.
+            display_format (MarkerDisplayFormat): The desired display format from the MarkerFormat enum.
+
+        Returns:
+            bool: True if the format was updated successfully, False otherwise.
+        """
+        LOGGER.info(f"├── Attempting to set marker format for graph '{graph_name}' to '{display_format.name}'")
+
+        try:
+            if not self.app.Project.Graphs.Exists(graph_name):
+                LOGGER.error(f"└── Target graph '{graph_name}' does not exist.")
+                return False
+
+            graph = self.app.Project.Graphs(graph_name)
+            graph.Markers.Options.DisplayFormat = display_format.value
+
+            LOGGER.info(f"└── Successfully updated marker format for '{graph_name}'.")
+            return True
+
+        except Exception as e:
+            LOGGER.error(f"└── Failed to update marker format for '{graph_name}'. Exception: {e}")
             return False
 
 

@@ -8,7 +8,7 @@ import sys
 import time
 from typing import Any
 
-from logger.logger import LOGGER
+from core.logger import LOGGER
 
 def create_load_pull_template(app: Any, timeout: float = 30.0) -> bool:
     """

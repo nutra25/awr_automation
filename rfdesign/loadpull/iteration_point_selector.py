@@ -1,7 +1,7 @@
 """
 iteration_point_selector.py
 Defines strategies for selecting the optimal point from load-pull contours.
-Delegates all persistent storage operations strictly to the central DataExporter.
+Delegates all operations strictly to the central AutomationContext.
 Utilizes embedded configuration nodes for strategy parameters.
 """
 
@@ -18,8 +18,7 @@ from shapely.geometry import Polygon
 from shapely.ops import unary_union
 import matplotlib.pyplot as plt
 import skrf as rf
-
-from logger.logger import LOGGER
+from core.logger import LOGGER
 
 
 @dataclass
@@ -41,7 +40,10 @@ class BasePointSelector(ABC):
         self.config = config
 
     @abstractmethod
-    def select_point(self, driver: Any, graph_name: str, exporter: Any = None, export_subpath: str = "") -> Tuple[str, str, str]:
+    def select_point(self, context: Any, graph_name: str, export_subpath: str = "") -> Tuple[str, str, str]:
+        """
+        Receives the global context instead of individual driver/exporter instances.
+        """
         pass
 
 
@@ -50,10 +52,10 @@ class MaxMarkerSelector(BasePointSelector):
     Selection strategy that targets the precise location of a predefined marker.
     """
 
-    def select_point(self, driver: Any, graph_name: str, exporter: Any = None, export_subpath: str = "") -> Tuple[str, str, str]:
+    def select_point(self, context: Any, graph_name: str, export_subpath: str = "") -> Tuple[str, str, str]:
         LOGGER.info(f"Initiating MaxMarkerSelector for graph: {graph_name}")
 
-        data = driver.graph.get_marker_data(graph_name, self.config.marker1_name)
+        data = context.driver.graph.get_marker_data(graph_name, self.config.marker1_name)
 
         if not data:
             LOGGER.warning("└── Failed to retrieve valid marker data. Returning default fallback values.")
@@ -68,11 +70,11 @@ class TradeOffSelector(BasePointSelector):
     Selection strategy that calculates a weighted central point between two distinct markers.
     """
 
-    def select_point(self, driver: Any, graph_name: str, exporter: Any = None, export_subpath: str = "") -> Tuple[str, str, str]:
+    def select_point(self, context: Any, graph_name: str, export_subpath: str = "") -> Tuple[str, str, str]:
         LOGGER.info(f"Initiating TradeOffSelector between markers '{self.config.marker1_name}' and '{self.config.marker2_name}'")
 
-        d1 = driver.graph.get_marker_data(graph_name, self.config.marker1_name)
-        d2 = driver.graph.get_marker_data(graph_name, self.config.marker2_name)
+        d1 = context.driver.graph.get_marker_data(graph_name, self.config.marker1_name)
+        d2 = context.driver.graph.get_marker_data(graph_name, self.config.marker2_name)
 
         if not d1 or not d2:
             LOGGER.warning("└── Incomplete marker data retrieved. Returning default fallback values.")
@@ -94,10 +96,10 @@ class BroadbandOptimumSelector(BasePointSelector):
     Advanced selection strategy to identify a generalized intersection area across multiple frequencies.
     """
 
-    def select_point(self, driver: Any, graph_name: str, exporter: Any = None, export_subpath: str = "") -> Tuple[str, str, str]:
+    def select_point(self, context: Any, graph_name: str, export_subpath: str = "") -> Tuple[str, str, str]:
         LOGGER.info(f"Initiating BroadbandOptimumSelector for graph: {graph_name}")
 
-        freq_geoms, freqs, num_freqs = self._fetch_and_process_contours(driver, graph_name)
+        freq_geoms, freqs, num_freqs = self._fetch_and_process_contours(context.driver, graph_name)
 
         if num_freqs == 0:
             return "0", "0", "0"
@@ -128,11 +130,11 @@ class BroadbandOptimumSelector(BasePointSelector):
             LOGGER.info(f"├── Optimal intersection identified with worst-case PAE threshold: {worst_case_pae}")
             LOGGER.info(f"├── Target centroid calculated at Magnitude={mag:.4f}, Angle={ang:.2f}°")
 
-            if self.config.show_plot and exporter:
-                self._generate_plot(graph_name, freqs, num_freqs, freq_geoms, best_state, geoms_to_plot, cx, cy, exporter, export_subpath)
-                self._generate_plot_3d_plotly(graph_name, freqs, num_freqs, freq_geoms, best_state, geoms_to_plot, cx, cy, exporter, export_subpath)
-            elif self.config.show_plot and not exporter:
-                LOGGER.warning("└── Visualization is enabled, but no DataExporter was provided. Skipping plot generation.")
+            if self.config.show_plot and context.exporter:
+                self._generate_plot(graph_name, freqs, num_freqs, freq_geoms, best_state, geoms_to_plot, cx, cy, context.exporter, export_subpath)
+                self._generate_plot_3d_plotly(graph_name, freqs, num_freqs, freq_geoms, best_state, geoms_to_plot, cx, cy, context.exporter, export_subpath)
+            elif self.config.show_plot and not context.exporter:
+                LOGGER.warning("└── Visualization is enabled, but no DataExporter was provided in context. Skipping plot generation.")
             else:
                 LOGGER.info("└── Visualization is disabled; skipping plot generation.")
 

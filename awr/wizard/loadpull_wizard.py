@@ -9,7 +9,7 @@ import time
 import sys
 from typing import Dict, Any
 
-from logger.logger import LOGGER
+from core.logger import LOGGER
 
 
 def run_loadpull_wizard(app: Any, config_params: Dict[str, Any]) -> bool:

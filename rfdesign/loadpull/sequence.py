@@ -2,14 +2,13 @@
 sequence.py
 Encapsulates the Load-Pull specific optimization sequence.
 Handles source/load iterations, wizard execution, and global maximum point selection.
-Operates using strictly typed configuration objects via dependency injection.
+Operates using strictly typed configuration objects via injected AutomationContext.
 """
 
 from typing import Tuple, Dict, Any, List
 from dataclasses import dataclass
 from rfdesign.loadpull.models import PullResult
-from logger.logger import LOGGER
-from dataexporter.dataexporter import DataExporter
+from core.logger import LOGGER
 from rfdesign.loadpull.tuner_utils import PullType, build_tuner_params, TunerConfig
 
 
@@ -43,12 +42,15 @@ class SequenceConfig:
 class LoadPullSequence:
     """
     Executes the Load-Pull specific wizard operations and measurement extractions.
+    Uses the global AutomationContext for dependencies.
     """
 
-    def __init__(self, driver: Any, exporter: DataExporter, config: SequenceConfig):
-        self.driver = driver
-        self.exporter = exporter
-        self.config = config
+    def __init__(self, context: Any):
+        self.context = context
+        self.driver = self.context.driver
+        self.exporter = self.context.exporter
+        # İlgili konfigürasyonu context ağacından çekiyoruz
+        self.config = self.context.config.rf_design.loadpull.sequence
 
     def _build_wizard_payload(self, active_side: str, fixed_side: str, iter_idx: int, radius: float, center_mag: float, center_ang: float) -> dict:
         """Dynamically generates the required AWR Wizard dictionary using structured config."""
@@ -102,7 +104,6 @@ class LoadPullSequence:
 
         center_mag = sweep_center[0] if isinstance(sweep_center, (list, tuple)) else sweep_center
 
-
         wizard_opts = self._build_wizard_payload(
             active_side=active_side,
             fixed_side=fixed_side,
@@ -116,10 +117,10 @@ class LoadPullSequence:
 
         graph_name = self.config.graph_name_pattern.format(iter=iter_idx, type=active_side.lower())
 
+        # ARTIK DRIVER VE EXPORTER YERİNE SADECE CONTEXT GÖNDERİYORUZ
         point, mag, ang = self.config.point_selector.select_point(
-            self.driver,
-            graph_name,
-            exporter=self.exporter,
+            context=self.context,
+            graph_name=graph_name,
             export_subpath=export_subpath
         )
 
@@ -132,6 +133,7 @@ class LoadPullSequence:
         )
 
     def _finalize_state(self, results: List[PullResult]) -> Tuple[Dict, Tuple]:
+        # ... (Burası aynı kalacak) ...
         best_lp = max((x for x in results if x.mode == self.config.load_pull_prefix), key=lambda x: float(x.point))
         best_sp = next(res for res in results if res.iter_no == best_lp.iter_no and res.mode == self.config.source_pull_prefix)
 
@@ -160,6 +162,7 @@ class LoadPullSequence:
         return measured_data, tuner_data
 
     def execute(self, export_subpath: str) -> Tuple[Dict, List[PullResult], Tuple]:
+        # ... (Burası aynı kalacak) ...
         current_results = []
         pos = {PullType.SOURCEPULL: (0.0, 0.0), PullType.LOADPULL: (0.0, 0.0)}
 

@@ -3,14 +3,12 @@ create_new_loadpull_project.py
 Macro-orchestrator for generating a complete Load-Pull project environment from scratch.
 Automates project initialization, schematic template generation, device replacement,
 and the bulk creation of required graphs, data files, and measurements.
-Strictly adheres to the tree-branch logging hierarchy.
+Strictly adheres to the tree-branch logging hierarchy and Context architecture.
 """
 
 from typing import Dict, Any, List
 from dataclasses import dataclass, field
-
-from logger.logger import LOGGER
-from awr.awr_driver import AWRDriver
+from core.logger import LOGGER
 from awr.graph.manager import GraphType
 from awr.data_file.new_data_file import DataFileType
 
@@ -38,21 +36,25 @@ class CreateProjectConfig:
     save_path: str = r"C:\Users\aliutkay\OneDrive\Masaüstü\test\loadpull.emp"
 
 
-def create_loadpull_project(driver: AWRDriver, config: CreateProjectConfig) -> bool:
+def create_loadpull_project(context: Any) -> bool:
     """
     Executes the comprehensive sequence to build a Load-Pull project environment.
+    Utilizes the global AutomationContext for dependencies and configuration.
     """
     LOGGER.info("├── Initiating Load-Pull Project Creation Sequence...")
 
     try:
-        # 1. Initialize New Project with specific library
+        driver = context.driver
+        config = context.config.rf_design.project_generation
+
+        # Initialize New Project with specific library
         LOGGER.info("│   ├── Step 1: Initializing new project environment...")
         if hasattr(driver.project, 'new_project_with_library'):
             driver.project.new_project_with_library(config.library_path)
         else:
             LOGGER.warning("│   │   ├── Method 'new_project_with_library' not explicitly found in Manager.")
 
-        # 2. Create Load Pull Template via Wizard
+        # Create Load Pull Template via Wizard
         LOGGER.info("│   ├── Step 2: Generating Load-Pull schematic template...")
         if hasattr(driver.wizard, 'create_load_pull_template'):
             template_success = driver.wizard.create_load_pull_template()
@@ -62,7 +64,7 @@ def create_loadpull_project(driver: AWRDriver, config: CreateProjectConfig) -> b
         else:
             LOGGER.warning("│   │   ├── Method 'create_load_pull_template' not explicitly found in Manager.")
 
-        # 3. Replace the default transistor/element with the target library component
+        # Replace the default transistor/element with the target library component
         LOGGER.info(f"│   ├── Step 3: Replacing element '{config.target_element}' and applying routing matrix...")
         replacement_success = driver.circuit.replace_element(
             schematic_name=config.schematic_name,
@@ -88,7 +90,7 @@ def create_loadpull_project(driver: AWRDriver, config: CreateProjectConfig) -> b
             LOGGER.error("│   └── Sequence aborted: Input port replacement failed.")
             return False
 
-        # 4. Generate the required Data Files, Graphs, and Measurements
+        # Generate the required Data Files, Graphs, and Measurements
         LOGGER.info(f"│   ├── Step 4: Generating operational infrastructure for {config.iterations} iterations...")
 
         for i in range(1, config.iterations + 1):

@@ -1,5 +1,5 @@
 import os
-from logger.logger import LOGGER
+from core.logger import LOGGER
 
 
 def save_project_as(app_instance: any, save_path: str) -> None:
