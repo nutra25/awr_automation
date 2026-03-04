@@ -118,7 +118,11 @@ app_config = AppConfig(
                 ),
                 measurement_config=_MEASUREMENT_CONFIG,
                 graph_name_pattern=_GRAPH_NAME_PATTERN,
-                point_selector=MaxMeasurementSelector,
+                point_selector=MaxMeasurementSelector(
+                    config=PointSelectorConfig(
+                        measurement_name="G_LPCMMAX(PAE" # Başka bir ölçüm isterseniz burayı değiştirebilirsiniz
+                    )
+                ),
                 #BroadbandOptimumSelector(config=PointSelectorConfig(show_plot=True)),
                 iteration_count=_ITERATION_COUNT,
                 radius_list=_RADIUS_LIST

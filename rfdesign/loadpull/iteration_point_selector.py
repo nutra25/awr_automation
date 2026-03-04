@@ -10,7 +10,6 @@ import io
 import math
 from abc import ABC, abstractmethod
 from typing import Tuple, Any, Dict, List, Optional
-from dataclasses import dataclass
 import numpy as np
 import plotly.graph_objects as go
 import plotly.colors as pc
@@ -20,16 +19,27 @@ import matplotlib.pyplot as plt
 import skrf as rf
 from core.logger import logger
 
+# Pydantic V2 Importları
+from pydantic import BaseModel, Field, ConfigDict
 
-@dataclass
-class PointSelectorConfig:
+
+class PointSelectorConfig(BaseModel):
     """
     Configuration node containing parameters for all selection strategies.
+    Pydantic V2 mimarisi kullanılarak veri doğrulama (validation) sağlanır.
     """
-    marker1_name: str = "m1"
-    marker2_name: str = "m2"
-    tradeoff_weight: float = 0.5
-    show_plot: bool = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    marker1_name: str = Field(default="m1")
+    marker2_name: str = Field(default="m2")
+    tradeoff_weight: float = Field(default=0.5)
+    show_plot: bool = Field(default=True)
+
+    # MaxMeasurementSelector için yeni eklenen merkezi ayar
+    measurement_name: str = Field(
+        default="G_LPCMMAX(PAE)",
+        description="AWR grafiğinden verisi çekilecek ölçümün adı."
+    )
 
 
 class BasePointSelector(ABC):
@@ -60,23 +70,32 @@ class MaxMeasurementSelector(BasePointSelector):
         """
         logger.info(f"Initiating MaxMeasurementSelector for graph: {graph_name}")
 
-        # Retrieve the measurement name from the config.
-        # It defaults to "G_LPCMMAX(PAE)" if not specified in the config,
-        # but can be easily overridden for other measurements like Gain or Output Power.
-        measurement_name = getattr(self.config, 'measurement_name', "G_LPCMMAX(PAE)")
+        # Config üzerinden Pydantic güvencesiyle ölçüm adını alıyoruz
+        measurement_name = self.config.measurement_name
 
-        # Call the data extraction method from the graph
-        y_data = context.driver.graph.get_single_measurement_data(graph_name, measurement_name)
+        try:
+            # Call the data extraction method from the graph
+            y_data = context.driver.graph.get_single_measurement_data(graph_name, measurement_name)
+        except AttributeError as e:
+            logger.error(f"└── AWR Driver Graph Manager missing method: {e}")
+            return "0", "0", "0"
+        except Exception as e:
+            logger.error(f"└── Unexpected error while fetching measurement data: {e}")
+            return "0", "0", "0"
 
         # Validate data length to prevent IndexError (we need at least 3 values)
         if not y_data or len(y_data) < 3:
             logger.warning(f"└── Failed to retrieve valid data for '{measurement_name}'. Returning default fallback values.")
             return "0", "0", "0"
 
-        # Parse the extracted data using generic variable names
-        measurement_value = y_data[0]  # This could be PAE, Pout, Gain, etc. depending on config
-        gamma_real = y_data[1]
-        gamma_imag = y_data[2]
+        try:
+            # Parse the extracted data using generic variable names
+            measurement_value = float(y_data[0])  # This could be PAE, Pout, Gain, etc.
+            gamma_real = float(y_data[1])
+            gamma_imag = float(y_data[2])
+        except ValueError:
+            logger.error("└── Extracted data contains non-numeric values. Returning defaults.")
+            return "0", "0", "0"
 
         # Calculate Gamma Magnitude and Angle
         gamma_mag = math.hypot(gamma_real, gamma_imag)

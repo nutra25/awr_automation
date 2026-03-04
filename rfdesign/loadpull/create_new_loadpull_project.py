@@ -64,13 +64,12 @@ def create_loadpull_project(context: Any) -> bool:
         else:
             logger.warning("│   │   ├── Method 'create_load_pull_template' not explicitly found in Manager.")
 
-        # Replace the default transistor/element with the target library component
         logger.info(f"│   ├── Step 3: Replacing element '{config.target_element}' and applying routing matrix...")
         replacement_success = driver.circuit.replace_element(
             schematic_name=config.schematic_name,
-            target=config.target_element,
+            target_designator=config.target_element,  # <-- 'target' yerine 'target_designator' oldu
             library_path=config.element_library,
-            mapping=config.node_mapping
+            node_mapping=config.node_mapping  # <-- 'mapping' yerine 'node_mapping' oldu
         )
 
         if not replacement_success:
@@ -81,9 +80,9 @@ def create_loadpull_project(context: Any) -> bool:
         logger.info(f"│   ├── Step 3: Replacing element {config.input_port_target} and applying routing matrix...")
         replacement_success = driver.circuit.replace_element(
             schematic_name=config.schematic_name,
-            target=config.input_port_target,
+            target_designator=config.input_port_target,  # <-- 'target' yerine 'target_designator' oldu
             element_name=config.input_port_replacement,
-            mapping=config.node_mapping
+            node_mapping=config.node_mapping  # <-- 'mapping' yerine 'node_mapping' oldu
         )
 
         if not replacement_success:
