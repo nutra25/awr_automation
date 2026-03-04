@@ -1,77 +1,87 @@
-import time
+import math
 import pyawr.mwoffice as mwoffice
 
+from core.logger import logger
 
-def get_all_data_for_single_point(app, graph_name, measurement_name):
+def extract_single_point_data(app, graph_name: str, measurement_name: str):
     """
-    Grafikteki ölçümü bulur ve ölçümün 1. noktasına ait
-    tüm veri boyutlarındaki (DataDimension) Y değerlerini doğrudan çeker.
+    Locates the specified measurement within the given graph and retrieves
+    all Y-dimension values associated with the first X-data point.
     """
+    logger.info(f"├── Attempting to extract data from graph: '{graph_name}'")
+
     try:
-
-
-        # 2. Grafiği bul
         graph = app.Project.Graphs.Item(graph_name)
+        logger.info("│   ├── Graph accessed successfully.")
 
-        # 3. İstenen ölçümü KISMİ EŞLEŞME ile bul
         target_meas = None
         for i in range(1, graph.Measurements.Count + 1):
             meas = graph.Measurements.Item(i)
             if measurement_name in meas.Name:
                 target_meas = meas
-                print(f"Eşleşme bulundu: '{meas.Name}'")
+                logger.info(f"│   ├── Measurement match found: '{meas.Name}'")
                 break
 
         if target_meas is None:
-            print(f"Hata: İçinde '{measurement_name}' geçen ölçüm bulunamadı.")
+            logger.error(f"│   └── Measurement containing '{measurement_name}' not found.")
             return None, None
 
-        # 4. Veri noktası kontrolü
-        if target_meas.XPointCount < 1:  # [3]
-            print("Hata: Ölçümde hiç veri noktası yok (Simülasyon başarısız olmuş olabilir).")
+        if target_meas.XPointCount < 1:
+            logger.error("│   └── Measurement contains no data points. Simulation may have failed.")
             return None, None
 
-        # Zaten tek noktamız olduğu için doğrudan 1. indeksteki X değerini alıyoruz
-        single_x_val = target_meas.XValue(1)  # [3]
+        single_x_val = target_meas.XValue(1)
+        y_dimensions = target_meas.YDataDim
 
-        # Bu noktaya ait kaç tane Y verisi (boyutu) olduğunu öğreniyoruz
-        y_dimensions = target_meas.YDataDim  # [1]
-
-        print(f"\nTek Nokta (X = {single_x_val}) İçin Tüm Veriler Çekiliyor...")
-        print("-" * 50)
+        logger.info(f"│   ├── Extracting data for single point (X = {single_x_val})")
 
         all_y_values = []
-
-        # 5. O noktaya ait tüm Y değerlerini çek
         for dim in range(1, y_dimensions + 1):
-            # YValue(xIndex, DataDimension) kullanarak o noktadaki tüm verileri alıyoruz
-            y_val = target_meas.YValue(1, dim)  # [2]
+            y_val = target_meas.YValue(1, dim)
             all_y_values.append(y_val)
 
-            print(f"Veri Boyutu [{dim}] ---> Y Değeri: {y_val}")
+            # Dynamically determine the branch character for the tree structure
+            branch_char = "└──" if dim == y_dimensions else "├──"
+            logger.debug(f"│   │   {branch_char} Data dimension [{dim}] -> Y Value: {y_val}")
 
-        print("-" * 50)
-
-        # X noktasını ve ona ait tüm Y değerlerini liste olarak döndür
+        logger.info("│   └── Data extraction completed successfully.")
         return single_x_val, all_y_values
 
     except Exception as e:
-        print(f"Veri çekme işlemi sırasında bir hata oluştu: {e}")
-        return None, None
+            logger.error(f"│   └── An error occurred during data extraction: {e}")
+            return None, None
 
 
-# ==========================================
-# KULLANIM BÖLÜMÜ
-# ==========================================
 if __name__ == "__main__":
-    app = mwoffice.CMWOffice()
+    logger.info("├── AWR Automation Script Initialized")
 
-    # Graph adını ve Measurement adını kendi projenize göre girin.
-    x_noktasi, o_noktaya_ait_y_verileri = get_all_data_for_single_point(
-        app=app,
-        graph_name="it1_load_pull",
-        measurement_name="G_LPCMMAX(PAE"
-    )
+    try:
+        app = mwoffice.CMWOffice()
+        logger.info("│   ├── Connected to AWR Microwave Office.")
+    except Exception as e:
+        logger.critical(f"│   └── Failed to connect to AWR: {e}")
+        exit(1)
 
-    # Dilerseniz dönen bu ham verileri doğrudan yazdırabilir veya başka bir işleme sokabilirsiniz
-    # print("Dönen Liste:", o_noktaya_ait_y_verileri)
+    # Define target graph and measurement
+    graph_target = "it1_load_pull"
+    meas_target = "G_LPCMMAX(PAE"
+
+    x_val, y_data = extract_single_point_data(app, graph_target, meas_target)
+
+    # Validate data length before accessing indices to prevent IndexError
+    if y_data and len(y_data) >= 3:
+        max_pae = y_data[0]
+        gamma_real = y_data[1]
+        gamma_imag = y_data[2]
+
+        # Calculate Magnitude and Angle
+        gamma_mag = math.hypot(gamma_real, gamma_imag)
+        gamma_ang = math.degrees(math.atan2(gamma_imag, gamma_real))
+
+        logger.info("│   ├── Load-Pull Calculation Results:")
+        logger.info(f"│   │   ├── Maximum PAE: {max_pae:.4f}")
+        logger.info(f"│   │   ├── Optimum Tuner Gamma Magnitude: {gamma_mag:.4f}")
+        logger.info(f"│   │   └── Optimum Tuner Gamma Angle: {gamma_ang:.2f} deg")
+        logger.info("└── Execution finished successfully.")
+    else:
+        logger.error("└── Insufficient or missing data retrieved for calculations.")
