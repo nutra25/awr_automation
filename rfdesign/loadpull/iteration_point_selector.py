@@ -59,55 +59,67 @@ class BasePointSelector(ABC):
 
 class MaxMeasurementSelector(BasePointSelector):
     """
-    Selection strategy that extracts single point data from a specific
-    measurement (e.g., PAE, Pout, Gain) to calculate Gamma Magnitude and Angle.
+    Selection strategy that requests generic trace data from the AWR interface,
+    parses it dynamically according to its structural dimensions, and calculates Gamma parameters.
     """
 
     def select_point(self, context: Any, graph_name: str, export_subpath: str = "") -> Tuple[str, str, str]:
         """
-        Extracts data from the graph, performs math calculations, and returns
-        the result as string format suitable for the tuner.
+        Retrieves raw graph data, intelligently processes nested or flat arrays to extract the
+        target measurement point, and computes polar coordinates.
         """
-        logger.info(f"Initiating MaxMeasurementSelector for graph: {graph_name}")
+        logger.info(f"Initiating MaxMeasurementSelector algorithm for graph: {graph_name}")
 
-        # Config üzerinden Pydantic güvencesiyle ölçüm adını alıyoruz
         measurement_name = self.config.measurement_name
 
         try:
-            # Call the data extraction method from the graph
             y_data = context.driver.graph.get_single_measurement_data(graph_name, measurement_name)
         except AttributeError as e:
-            logger.error(f"└── AWR Driver Graph Manager missing method: {e}")
+            logger.error(f"└── Context interface error: {e}")
             return "0", "0", "0"
         except Exception as e:
-            logger.error(f"└── Unexpected error while fetching measurement data: {e}")
+            logger.error(f"└── Unhandled exception during raw data retrieval: {e}")
             return "0", "0", "0"
 
-        # Validate data length to prevent IndexError (we need at least 3 values)
-        if not y_data or len(y_data) < 3:
-            logger.warning(f"└── Failed to retrieve valid data for '{measurement_name}'. Returning default fallback values.")
+        if not y_data:
+            logger.warning(f"└── Insufficient data retrieved for '{measurement_name}'. Returning default origins.")
             return "0", "0", "0"
 
         try:
-            # Parse the extracted data using generic variable names
-            measurement_value = float(y_data[0])  # This could be PAE, Pout, Gain, etc.
-            gamma_real = float(y_data[1])
-            gamma_imag = float(y_data[2])
-        except ValueError:
-            logger.error("└── Extracted data contains non-numeric values. Returning defaults.")
+            logger.debug("├── Parsing trace data into load-pull parameters.")
+
+            # Dynamically handle nested vs. flat data structures coming from AWR
+            first_element = y_data[0]
+            if isinstance(first_element, (list, tuple)):
+                logger.debug("│   ├── Nested multidimensional data detected. Extracting the first coordinate point.")
+                target_point = first_element
+            else:
+                logger.debug("│   ├── Flat one-dimensional data detected.")
+                target_point = y_data
+
+            if len(target_point) < 3:
+                logger.error(
+                    f"└── The extracted data point contains insufficient dimensions ({len(target_point)}). Minimum 3 required.")
+                return "0", "0", "0"
+
+            # Map the point indices to specific domain variables
+            measurement_value = float(target_point[0])
+            gamma_real = float(target_point[1])
+            gamma_imag = float(target_point[2])
+
+        except (ValueError, IndexError, TypeError) as e:
+            logger.error(f"└── Data parsing failed due to invalid format or typing: {e}")
             return "0", "0", "0"
 
-        # Calculate Gamma Magnitude and Angle
+        logger.debug("├── Executing mathematical transformations (Rectangular to Polar).")
         gamma_mag = math.hypot(gamma_real, gamma_imag)
         gamma_ang = math.degrees(math.atan2(gamma_imag, gamma_real))
 
-        # Log the calculated results using the tree structure dynamically
-        logger.info("└── Load-Pull Calculation Results:")
-        logger.info(f"    ├── Target Measurement ({measurement_name}): {measurement_value:.4f}")
-        logger.info(f"    ├── Optimum Tuner Gamma Magnitude: {gamma_mag:.4f}")
-        logger.info(f"    └── Optimum Tuner Gamma Angle: {gamma_ang:.2f} deg")
+        logger.info("└── Load-Pull Target Point Resolved:")
+        logger.info(f"    ├── Target Measurement Value: {measurement_value:.4f}")
+        logger.info(f"    ├── Gamma Magnitude: {gamma_mag:.4f}")
+        logger.info(f"    └── Gamma Angle: {gamma_ang:.2f} deg")
 
-        # Return format: (Measurement Value, Magnitude, Angle)
         return str(measurement_value), str(gamma_mag), str(gamma_ang)
 
 

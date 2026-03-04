@@ -1,130 +1,93 @@
 import math
-from typing import Dict, List, Any
+from typing import List, Any, Optional
 from core.logger import logger
 from awr.graph.perform_simulation import perform_simulation
 
 
-def extract_single_point_data(app_instance: Any, graph_name: str) -> Dict[float, List[Dict[str, Any]]]:
+def extract_single_point_data(app_instance: Any, graph_name: str, measurement_name: str) -> Optional[List[Any]]:
     """
-    Executes the AWR Graph Data Extraction sequence.
+    Executes a generic data extraction sequence for a specified measurement.
 
-    This function triggers a simulation using the centralized driver, locates
-    the specified graph, and extracts PAE and Frequency data into structured
-    islands of valid complex points.
+    This function isolates the AWR extraction logic from the business logic.
+    It triggers a simulation, locates the target graph and measurement using
+    robust string matching, and returns the raw trace values while preserving
+    their original nested or flat structure.
 
     Args:
         app_instance (Any): The active AWR MWOffice COM application instance.
         graph_name (str): The name of the target graph.
+        measurement_name (str): The exact or partial name of the measurement to extract.
 
     Returns:
-        Dict[float, List[Dict[str, Any]]]: Data grouped by frequency.
+        Optional[List[Any]]: A list of raw extracted values (can contain nested tuples for multidimensional points), or None if extraction fails.
     """
-    logger.info(f"Starting Data Extraction Sequence for Graph: {graph_name}")
+    logger.info("Initiating Generic Data Extraction Sequence")
+    logger.info(f"├── Target Graph: {graph_name}")
+    logger.info(f"├── Target Measurement: {measurement_name}")
 
     try:
         project = app_instance.Project
 
-        # Verify graph existence before proceeding
         if not project.Graphs.Exists(graph_name):
-            logger.critical(f"└── Graph NOT found in AWR system: {graph_name}")
-            return {}
+            logger.error(f"└── Extraction Failed: Graph '{graph_name}' does not exist in the active project.")
+            return None
 
-        logger.debug("├── Graph located. Initializing data structures.")
-
-        # Trigger the simulation analysis using the specialized driver
-        # This call replaces manual simulation logic and ensures consistent logging.
+        logger.debug("├── Target graph located. Executing simulation sequence.")
         perform_simulation(app_instance)
 
         graph = project.Graphs(graph_name)
-        data_by_freq = {}
 
-        meas_items = list(graph.Measurements)
-        total_meas = len(meas_items)
+        target_meas = None
+        available_measurements = []
 
-        logger.info("├── Extracting Measurement Traces:")
+        target_clean = measurement_name.replace(" ", "").upper()
 
-        for m_idx, meas in enumerate(meas_items):
-            is_last_meas = (m_idx == total_meas - 1)
-            tree_char_m = "└──" if is_last_meas else "├──"
+        for meas in graph.Measurements:
+            meas_name = meas.Name
+            available_measurements.append(meas_name)
 
-            if not meas.Enabled:
-                logger.debug(f"│   {tree_char_m} Measurement {meas.Name}: SKIPPED (Disabled)")
-                continue
+            actual_clean = meas_name.replace(" ", "").upper()
 
-            for i in range(1, meas.TraceCount + 1):
-                try:
-                    sweep_labels = meas.SweepLabels(i)
-                    pae_val, freq_val = None, None
+            if target_clean in actual_clean or actual_clean in target_clean:
+                target_meas = meas
+                break
 
-                    if sweep_labels.Count > 0:
-                        for label_idx in range(1, sweep_labels.Count + 1):
-                            lbl = sweep_labels.Item(label_idx)
-                            name_up = lbl.Name.upper()
-                            if name_up == "PAE":
-                                pae_val = float(lbl.Value)
-                            elif name_up in ["F1", "FREQ", "FREQUENCY"]:
-                                freq_val = float(lbl.Value)
+        if not target_meas:
+            logger.error(
+                f"└── Extraction Failed: Measurement '{measurement_name}' not found within graph '{graph_name}'.")
+            logger.debug("    ├── Available measurements in this graph according to AWR COM:")
 
-                    if pae_val is not None and freq_val is None:
-                        freq_val = 0.0
+            for idx, am in enumerate(available_measurements):
+                prefix = "└──" if idx == len(available_measurements) - 1 else "├──"
+                logger.debug(f"    │   {prefix} '{am}'")
 
-                    if pae_val is None:
-                        continue
+            return None
 
-                    data = meas.TraceValues(i)
-                    if not data:
-                        continue
+        if not target_meas.Enabled:
+            logger.warning(f"└── Extraction Aborted: Measurement '{target_meas.Name}' is currently disabled.")
+            return None
 
-                    islands = []
-                    curr_r, curr_i = [], []
+        logger.debug(f"├── Target measurement verified as: '{target_meas.Name}'. Fetching raw trace values.")
 
-                    # Parse trace values into points
-                    if isinstance(data[0], (int, float)):
-                        step = 3 if len(data) % 3 == 0 else 2
-                        points = []
-                        for k in range(0, len(data) - (step - 1), step):
-                            if step == 3:
-                                points.append((data[k], data[k + 1], data[k + 2]))
-                            else:
-                                points.append((0.0, data[k], data[k + 1]))
-                    else:
-                        points = data
+        try:
+            # Extract raw trace data directly from the COM interface
+            raw_data = target_meas.TraceValues(1)
 
-                    for pt in points:
-                        r, im = pt[1], pt[2]
-                        is_valid = not (math.isnan(r) or math.isinf(r) or math.isnan(im) or math.isinf(im))
-                        if is_valid and (abs(r) > 3.0 or abs(im) > 3.0):
-                            is_valid = False
+            if not raw_data:
+                logger.error("└── Extraction Failed: Retrieved trace data is empty.")
+                return None
 
-                        if is_valid:
-                            curr_r.append(r)
-                            curr_i.append(im)
-                        else:
-                            if len(curr_r) > 2:
-                                if curr_r[0] != curr_r[-1] or curr_i[0] != curr_i[-1]:
-                                    curr_r.append(curr_r[0])
-                                    curr_i.append(curr_i[0])
-                                islands.append({'real': curr_r, 'imag': curr_i})
-                            curr_r, curr_i = [], []
+            # Convert the COM object to a standard Python list, preserving any nested tuples
+            data_list = list(raw_data)
 
-                    if len(curr_r) > 2:
-                        if curr_r[0] != curr_r[-1] or curr_i[0] != curr_i[-1]:
-                            curr_r.append(curr_r[0])
-                            curr_i.append(curr_i[0])
-                        islands.append({'real': curr_r, 'imag': curr_i})
+            logger.info(
+                f"└── Data extraction completed successfully. Retrieved {len(data_list)} primary data elements.")
+            return data_list
 
-                    if islands:
-                        if freq_val not in data_by_freq:
-                            data_by_freq[freq_val] = []
-                        data_by_freq[freq_val].append({'pae': pae_val, 'islands': islands})
-
-                except Exception as e:
-                    if i == 1:
-                        logger.error(f"│   {tree_char_m} Trace #{i} read FAILED -> {e}")
-
-        logger.info("└── Data Extraction Process Completed Successfully")
-        return data_by_freq
+        except Exception as e:
+            logger.error(f"└── Trace read operation failed for measurement '{target_meas.Name}': {e}")
+            return None
 
     except Exception as e:
-        logger.critical(f"└── Critical Error in Graph Data Extraction: {e}")
-        raise
+        logger.error(f"└── Critical framework error during data extraction: {e}")
+        return None

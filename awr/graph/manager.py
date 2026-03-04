@@ -119,15 +119,18 @@ class GraphManager:
         """
         return self.graph_service.set_graph_marker_display_format(graph_name, display_format)
 
-    def get_single_measurement_data(self, graph_name: str, measurement_name: str) -> List[float]:
+    def get_single_measurement_data(self, graph_name: str, measurement_name: str) -> List[Any]:
         """
-        Delegates the extraction of multidimensional measurement data to the external module.
+        Delegates the extraction of generic, raw measurement data to the specialized module.
+        Preserves original data dimensionality.
         """
-        x_val, y_data = extract_single_point_data(self.app, graph_name, measurement_name)
+        raw_data = extract_single_point_data(self.app, graph_name, measurement_name)
 
-        if y_data is None:
+        if not raw_data:
+            logger.warning("└── No valid data extracted from AWR environment. Returning an empty list.")
             return []
-        return y_data
+
+        return raw_data
 
 if __name__ == "__main__":
     import pyawr.mwoffice as mwoffice

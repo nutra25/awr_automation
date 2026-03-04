@@ -120,7 +120,7 @@ app_config = AppConfig(
                 graph_name_pattern=_GRAPH_NAME_PATTERN,
                 point_selector=MaxMeasurementSelector(
                     config=PointSelectorConfig(
-                        measurement_name="G_LPCMMAX(PAE" # Başka bir ölçüm isterseniz burayı değiştirebilirsiniz
+                        measurement_name="G_LPCMMAX(PAE,50,0,0)[*,1]" # Başka bir ölçüm isterseniz burayı değiştirebilirsiniz
                     )
                 ),
                 #BroadbandOptimumSelector(config=PointSelectorConfig(show_plot=True)),
