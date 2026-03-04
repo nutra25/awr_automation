@@ -47,22 +47,49 @@ class BasePointSelector(ABC):
         pass
 
 
-class MaxMarkerSelector(BasePointSelector):
+class MaxMeasurementSelector(BasePointSelector):
     """
-    Selection strategy that targets the precise location of a predefined marker.
+    Selection strategy that extracts single point data from a specific
+    measurement (e.g., PAE, Pout, Gain) to calculate Gamma Magnitude and Angle.
     """
 
     def select_point(self, context: Any, graph_name: str, export_subpath: str = "") -> Tuple[str, str, str]:
-        logger.info(f"Initiating MaxMarkerSelector for graph: {graph_name}")
+        """
+        Extracts data from the graph, performs math calculations, and returns
+        the result as string format suitable for the tuner.
+        """
+        logger.info(f"Initiating MaxMeasurementSelector for graph: {graph_name}")
 
-        data = context.driver.graph.get_marker_data(graph_name, self.config.marker1_name)
+        # Retrieve the measurement name from the config.
+        # It defaults to "G_LPCMMAX(PAE)" if not specified in the config,
+        # but can be easily overridden for other measurements like Gain or Output Power.
+        measurement_name = getattr(self.config, 'measurement_name', "G_LPCMMAX(PAE)")
 
-        if not data:
-            logger.warning("└── Failed to retrieve valid marker data. Returning default fallback values.")
+        # Call the data extraction method from the graph
+        y_data = context.driver.graph.get_single_measurement_data(graph_name, measurement_name)
+
+        # Validate data length to prevent IndexError (we need at least 3 values)
+        if not y_data or len(y_data) < 3:
+            logger.warning(f"└── Failed to retrieve valid data for '{measurement_name}'. Returning default fallback values.")
             return "0", "0", "0"
 
-        logger.info(f"└── Successfully acquired marker coordinates: Magnitude={data[1]}, Angle={data[2]}")
-        return str(data), str(data[1]), str(data[2])
+        # Parse the extracted data using generic variable names
+        measurement_value = y_data[0]  # This could be PAE, Pout, Gain, etc. depending on config
+        gamma_real = y_data[1]
+        gamma_imag = y_data[2]
+
+        # Calculate Gamma Magnitude and Angle
+        gamma_mag = math.hypot(gamma_real, gamma_imag)
+        gamma_ang = math.degrees(math.atan2(gamma_imag, gamma_real))
+
+        # Log the calculated results using the tree structure dynamically
+        logger.info("└── Load-Pull Calculation Results:")
+        logger.info(f"    ├── Target Measurement ({measurement_name}): {measurement_value:.4f}")
+        logger.info(f"    ├── Optimum Tuner Gamma Magnitude: {gamma_mag:.4f}")
+        logger.info(f"    └── Optimum Tuner Gamma Angle: {gamma_ang:.2f} deg")
+
+        # Return format: (Measurement Value, Magnitude, Angle)
+        return str(measurement_value), str(gamma_mag), str(gamma_ang)
 
 
 class TradeOffSelector(BasePointSelector):

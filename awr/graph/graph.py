@@ -113,6 +113,47 @@ class Graph:
             logger.error(f"└── Failed to update marker format for '{graph_name}'. Exception: {e}")
             return False
 
+    def get_single_measurement_data(self, measurement_name: str) -> list:
+        """
+        Locates the specified measurement within this graph instance and retrieves
+        all Y-dimension values associated with the first X-data point.
+
+        Args:
+            measurement_name (str): Name of the target measurement to find.
+
+        Returns:
+            list: A list of Y-axis values (e.g., [max_pae, gamma_real, gamma_imag]).
+                  Returns an empty list if the data is not found or simulation failed.
+        """
+        graph_name = getattr(self, 'name', 'Unknown Graph')
+        logger.info(f"├── Fetching data from graph: '{graph_name}', Measurement: '{measurement_name}'")
+
+        try:
+            target_meas = None
+
+            for i in range(1, self.awr_graph.Measurements.Count + 1):
+                meas = self.awr_graph.Measurements.Item(i)
+                if measurement_name in meas.Name:
+                    target_meas = meas
+                    break
+
+            if target_meas is None or target_meas.XPointCount < 1:
+                logger.error(f"│   └── Measurement '{measurement_name}' not found or contains no data.")
+                return []
+
+            y_dimensions = target_meas.YDataDim
+            all_y_values = []
+
+            # Collect data for all Y dimensions
+            for dim in range(1, y_dimensions + 1):
+                all_y_values.append(target_meas.YValue(1, dim))
+
+            logger.info("│   └── Data extraction completed successfully.")
+            return all_y_values
+
+        except Exception as e:
+            logger.error(f"│   └── An error occurred during data extraction: {e}")
+            return []
 
 if __name__ == "__main__":
     logger.info("├── Starting standalone test sequence for graph.py")
