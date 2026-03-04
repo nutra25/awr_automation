@@ -26,7 +26,7 @@ class CreateProjectConfig:
     iterations: int = 3
 
     # Graph & Measurement settings
-    meas_expr_pae_contour: str = "G_LPCM(PAE,0.5,12,50,0)[1,*]"
+    meas_expr_pae_contour: str = "G_LPCMMAX(PAE,50,0,0)[*,1]"
     results_graph_name: str = "Results"
     results_pae_meas: str = "PAE(PORT_1,PORT_2)"
     results_pwr_meas: str = "DB(PT(PORT_2))"

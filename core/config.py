@@ -11,7 +11,7 @@ from engine.models import State, StateType, Element
 from engine.utils import generate_sweep_values
 from core.paths import RUN_DIR, GRAPHS_DIR, EMP_DIR
 
-from rfdesign.loadpull.iteration_point_selector import BroadbandOptimumSelector, PointSelectorConfig, MaxMarkerSelector
+from rfdesign.loadpull.iteration_point_selector import BroadbandOptimumSelector, PointSelectorConfig, MaxMeasurementSelector
 from rfdesign.loadpull.tuner_utils import TunerConfig, TunerSideConfig
 from rfdesign.loadpull.handlers import HandlersConfig
 from rfdesign.loadpull.sequence import SequenceConfig, WizardSettingsConfig
@@ -118,7 +118,7 @@ app_config = AppConfig(
                 ),
                 measurement_config=_MEASUREMENT_CONFIG,
                 graph_name_pattern=_GRAPH_NAME_PATTERN,
-                point_selector=MaxMarkerSelector,
+                point_selector=MaxMeasurementSelector,
                 #BroadbandOptimumSelector(config=PointSelectorConfig(show_plot=True)),
                 iteration_count=_ITERATION_COUNT,
                 radius_list=_RADIUS_LIST

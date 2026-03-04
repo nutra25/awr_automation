@@ -10,7 +10,7 @@ from awr.awr_driver import AWRDriver
 from engine.simulation_manager import SimulationManager
 from core.dataexporter import DataExporter, DataExporterConfig
 from core.context import AutomationContext
-
+from rfdesign.loadpull.create_new_loadpull_project import create_loadpull_project
 
 def main():
     try:
@@ -19,17 +19,23 @@ def main():
         exporter_config = DataExporterConfig(base_directory=app_config.engine.run_dir)
         exporter = DataExporter(config=exporter_config)
 
-        logger.info("├── Loading Project Template...")
-
-        if not selected_driver.project.open_existing_project(app_config.project_template_path):
-            logger.critical("└── Failed to load project template. Aborting process.")
-            return
-
         context = AutomationContext(
             driver=selected_driver,
             exporter=exporter,
             config=app_config
         )
+
+        logger.info("├── Creating New Load-Pull Project Environment...")
+
+        project_created = create_loadpull_project(context)
+
+        if not project_created:
+            logger.critical("└── Failed to create new load-pull project. Aborting process.")
+            return
+
+        logger.info("├── Initializing Simulation Engine...")
+        engine = SimulationManager(context=context)
+        engine.start()
 
         engine = SimulationManager(context=context)
         engine.start()
