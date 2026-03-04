@@ -1,87 +1,130 @@
 import math
-import pyawr.mwoffice as mwoffice
-
+from typing import Dict, List, Any
 from core.logger import logger
+from awr.graph.perform_simulation import perform_simulation
 
-def extract_single_point_data(app, graph_name: str, measurement_name: str):
+
+def extract_single_point_data(app_instance: Any, graph_name: str) -> Dict[float, List[Dict[str, Any]]]:
     """
-    Locates the specified measurement within the given graph and retrieves
-    all Y-dimension values associated with the first X-data point.
+    Executes the AWR Graph Data Extraction sequence.
+
+    This function triggers a simulation using the centralized driver, locates
+    the specified graph, and extracts PAE and Frequency data into structured
+    islands of valid complex points.
+
+    Args:
+        app_instance (Any): The active AWR MWOffice COM application instance.
+        graph_name (str): The name of the target graph.
+
+    Returns:
+        Dict[float, List[Dict[str, Any]]]: Data grouped by frequency.
     """
-    logger.info(f"├── Attempting to extract data from graph: '{graph_name}'")
+    logger.info(f"Starting Data Extraction Sequence for Graph: {graph_name}")
 
     try:
-        graph = app.Project.Graphs.Item(graph_name)
-        logger.info("│   ├── Graph accessed successfully.")
+        project = app_instance.Project
 
-        target_meas = None
-        for i in range(1, graph.Measurements.Count + 1):
-            meas = graph.Measurements.Item(i)
-            if measurement_name in meas.Name:
-                target_meas = meas
-                logger.info(f"│   ├── Measurement match found: '{meas.Name}'")
-                break
+        # Verify graph existence before proceeding
+        if not project.Graphs.Exists(graph_name):
+            logger.critical(f"└── Graph NOT found in AWR system: {graph_name}")
+            return {}
 
-        if target_meas is None:
-            logger.error(f"│   └── Measurement containing '{measurement_name}' not found.")
-            return None, None
+        logger.debug("├── Graph located. Initializing data structures.")
 
-        if target_meas.XPointCount < 1:
-            logger.error("│   └── Measurement contains no data points. Simulation may have failed.")
-            return None, None
+        # Trigger the simulation analysis using the specialized driver
+        # This call replaces manual simulation logic and ensures consistent logging.
+        perform_simulation(app_instance)
 
-        single_x_val = target_meas.XValue(1)
-        y_dimensions = target_meas.YDataDim
+        graph = project.Graphs(graph_name)
+        data_by_freq = {}
 
-        logger.info(f"│   ├── Extracting data for single point (X = {single_x_val})")
+        meas_items = list(graph.Measurements)
+        total_meas = len(meas_items)
 
-        all_y_values = []
-        for dim in range(1, y_dimensions + 1):
-            y_val = target_meas.YValue(1, dim)
-            all_y_values.append(y_val)
+        logger.info("├── Extracting Measurement Traces:")
 
-            # Dynamically determine the branch character for the tree structure
-            branch_char = "└──" if dim == y_dimensions else "├──"
-            logger.debug(f"│   │   {branch_char} Data dimension [{dim}] -> Y Value: {y_val}")
+        for m_idx, meas in enumerate(meas_items):
+            is_last_meas = (m_idx == total_meas - 1)
+            tree_char_m = "└──" if is_last_meas else "├──"
 
-        logger.info("│   └── Data extraction completed successfully.")
-        return single_x_val, all_y_values
+            if not meas.Enabled:
+                logger.debug(f"│   {tree_char_m} Measurement {meas.Name}: SKIPPED (Disabled)")
+                continue
+
+            for i in range(1, meas.TraceCount + 1):
+                try:
+                    sweep_labels = meas.SweepLabels(i)
+                    pae_val, freq_val = None, None
+
+                    if sweep_labels.Count > 0:
+                        for label_idx in range(1, sweep_labels.Count + 1):
+                            lbl = sweep_labels.Item(label_idx)
+                            name_up = lbl.Name.upper()
+                            if name_up == "PAE":
+                                pae_val = float(lbl.Value)
+                            elif name_up in ["F1", "FREQ", "FREQUENCY"]:
+                                freq_val = float(lbl.Value)
+
+                    if pae_val is not None and freq_val is None:
+                        freq_val = 0.0
+
+                    if pae_val is None:
+                        continue
+
+                    data = meas.TraceValues(i)
+                    if not data:
+                        continue
+
+                    islands = []
+                    curr_r, curr_i = [], []
+
+                    # Parse trace values into points
+                    if isinstance(data[0], (int, float)):
+                        step = 3 if len(data) % 3 == 0 else 2
+                        points = []
+                        for k in range(0, len(data) - (step - 1), step):
+                            if step == 3:
+                                points.append((data[k], data[k + 1], data[k + 2]))
+                            else:
+                                points.append((0.0, data[k], data[k + 1]))
+                    else:
+                        points = data
+
+                    for pt in points:
+                        r, im = pt[1], pt[2]
+                        is_valid = not (math.isnan(r) or math.isinf(r) or math.isnan(im) or math.isinf(im))
+                        if is_valid and (abs(r) > 3.0 or abs(im) > 3.0):
+                            is_valid = False
+
+                        if is_valid:
+                            curr_r.append(r)
+                            curr_i.append(im)
+                        else:
+                            if len(curr_r) > 2:
+                                if curr_r[0] != curr_r[-1] or curr_i[0] != curr_i[-1]:
+                                    curr_r.append(curr_r[0])
+                                    curr_i.append(curr_i[0])
+                                islands.append({'real': curr_r, 'imag': curr_i})
+                            curr_r, curr_i = [], []
+
+                    if len(curr_r) > 2:
+                        if curr_r[0] != curr_r[-1] or curr_i[0] != curr_i[-1]:
+                            curr_r.append(curr_r[0])
+                            curr_i.append(curr_i[0])
+                        islands.append({'real': curr_r, 'imag': curr_i})
+
+                    if islands:
+                        if freq_val not in data_by_freq:
+                            data_by_freq[freq_val] = []
+                        data_by_freq[freq_val].append({'pae': pae_val, 'islands': islands})
+
+                except Exception as e:
+                    if i == 1:
+                        logger.error(f"│   {tree_char_m} Trace #{i} read FAILED -> {e}")
+
+        logger.info("└── Data Extraction Process Completed Successfully")
+        return data_by_freq
 
     except Exception as e:
-            logger.error(f"│   └── An error occurred during data extraction: {e}")
-            return None, None
-
-
-if __name__ == "__main__":
-    logger.info("├── AWR Automation Script Initialized")
-
-    try:
-        app = mwoffice.CMWOffice()
-        logger.info("│   ├── Connected to AWR Microwave Office.")
-    except Exception as e:
-        logger.critical(f"│   └── Failed to connect to AWR: {e}")
-        exit(1)
-
-    # Define target graph and measurement
-    graph_target = "it1_load_pull"
-    meas_target = "G_LPCMMAX(PAE"
-
-    x_val, y_data = extract_single_point_data(app, graph_target, meas_target)
-
-    # Validate data length before accessing indices to prevent IndexError
-    if y_data and len(y_data) >= 3:
-        max_pae = y_data[0]
-        gamma_real = y_data[1]
-        gamma_imag = y_data[2]
-
-        # Calculate Magnitude and Angle
-        gamma_mag = math.hypot(gamma_real, gamma_imag)
-        gamma_ang = math.degrees(math.atan2(gamma_imag, gamma_real))
-
-        logger.info("│   ├── Load-Pull Calculation Results:")
-        logger.info(f"│   │   ├── Maximum PAE: {max_pae:.4f}")
-        logger.info(f"│   │   ├── Optimum Tuner Gamma Magnitude: {gamma_mag:.4f}")
-        logger.info(f"│   │   └── Optimum Tuner Gamma Angle: {gamma_ang:.2f} deg")
-        logger.info("└── Execution finished successfully.")
-    else:
-        logger.error("└── Insufficient or missing data retrieved for calculations.")
+        logger.critical(f"└── Critical Error in Graph Data Extraction: {e}")
+        raise

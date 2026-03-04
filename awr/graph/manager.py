@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Optional
 
 from awr.graph.get_broadband_contours import extract_graph_data
 from awr.graph.perform_simulation import perform_simulation
-
+from awr.graph.get_measurement_data import extract_single_point_data
 
 # Import the newly encapsulated domain service classes
 from awr.graph.graph import Graph, GraphType, MarkerDisplayFormat
@@ -119,6 +119,15 @@ class GraphManager:
         """
         return self.graph_service.set_graph_marker_display_format(graph_name, display_format)
 
+    def get_single_measurement_data(self, graph_name: str, measurement_name: str) -> List[float]:
+        """
+        Delegates the extraction of multidimensional measurement data to the external module.
+        """
+        x_val, y_data = extract_single_point_data(self.app, graph_name, measurement_name)
+
+        if y_data is None:
+            return []
+        return y_data
 
 if __name__ == "__main__":
     import pyawr.mwoffice as mwoffice
