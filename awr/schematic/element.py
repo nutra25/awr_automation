@@ -1,9 +1,5 @@
-from typing import Optional, Any, Dict
-
-from fontTools.qu2cu.qu2cu import Union, List
-
+from typing import Optional, Any, Dict, Union, List
 from awr.awr_component import AWRComponent
-
 
 class Element(AWRComponent):
     
@@ -183,28 +179,28 @@ class Element(AWRComponent):
 
         self.logger.info(f"├── Initiating macro sequence: Replace & Rewire for '{target_designator}'")
 
-        old_element = self.element_service.find_element(schematic_name, target_designator)
+        old_element = self.awr.schematic.element.find_element(schematic_name, target_designator)
         if not old_element:
             self.logger.error(f"└── Sequence aborted: Target element '{target_designator}' not found.")
             return False
 
         center_x = old_element.x
         center_y = old_element.y
-        old_nodes = self.element_service.get_element_node_positions(schematic_name, target_designator)
+        old_nodes = self.awr.schematic.element.get_element_node_positions(schematic_name, target_designator)
 
-        if not self.element_service.delete_element(schematic_name, target_designator):
+        if not self.awr.schematic.element.delete_element(schematic_name, target_designator):
             self.logger.error("└── Sequence aborted: Failed to delete the target element.")
             return False
 
         new_element = None
         if library_path:
             self.logger.debug(f"│   ├── Attempting instantiation via library path: {library_path}")
-            new_element = self.element_service.add_element(
+            new_element = self.awr.schematic.element.add_element(
                 schematic_name, center_x, center_y, library_path=library_path
             )
         elif element_name:
             self.logger.debug(f"│   ├── Attempting instantiation via standard name: {element_name}")
-            new_element = self.element_service.add_element(
+            new_element = self.awr.schematic.element.add_element(
                 schematic_name, center_x, center_y, element_name=element_name
             )
 
@@ -212,7 +208,7 @@ class Element(AWRComponent):
             self.logger.error("└── Sequence aborted: No valid source provided or instantiation failed.")
             return False
 
-        new_nodes = self.element_service.get_element_node_positions(schematic_name, new_element.Name)
+        new_nodes = self.awr.schematic.element.get_element_node_positions(schematic_name, new_element.Name)
 
         old_nodes_dict = {n["PinNumber"]: n for n in old_nodes}
         new_nodes_dict = {n["PinNumber"]: n for n in new_nodes}
@@ -239,7 +235,7 @@ class Element(AWRComponent):
 
                 if (o_node["x"] != n_node["x"]) or (o_node["y"] != n_node["y"]):
 
-                    if self.add_wire(schematic_name, o_node["x"], o_node["y"], n_node["x"], n_node["y"]):
+                    if self.awr.schematic.add_wire(schematic_name, o_node["x"], o_node["y"], n_node["x"], n_node["y"]):
                         wire_count += 1
                 else:
                     self.logger.debug(f"│   ├── Pins perfectly overlap (Old:{old_pin} -> New:{new_pin}). Wiring bypassed.")

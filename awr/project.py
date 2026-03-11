@@ -64,7 +64,6 @@ class Project(AWRComponent):
 
         try:
             project = self.app.Project
-            # Simulation steps are logged as DEBUG to keep the console output clean
             self.logger.debug("│   ├── Starting Simulation (Analyze)...")
             simulator = project.Simulator
             simulator.Analyze()

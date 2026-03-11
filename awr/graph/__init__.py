@@ -26,8 +26,8 @@ class MarkerDisplayFormat(Enum):
 class Graph(AWRComponent):
     def __init__(self, awr):
         super().__init__(awr)
-        self.measurement = Measurement(self)
-        self.marker = Marker(self)
+        self.measurement = Measurement(self.awr)
+        self.marker = Marker(self.awr)
 
     def find_graph(self, graph_name) -> bool:
         graphs = self.app.Project.Graphs

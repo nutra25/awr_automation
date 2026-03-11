@@ -8,7 +8,7 @@ from core.logger import logger
 from .graph import Graph
 from .project import Project
 from .wizard import Wizard
-from .dataFile import DataFile
+from .data_file import DataFile
 from .schematic import Schematic
 
 class Awr:
@@ -18,7 +18,7 @@ class Awr:
 
         self.graph = Graph(self)
         self.schematic = Schematic(self)
-        self.dataFile = DataFile(self)
+        self.data_file = DataFile(self)
         self.project = Project(self)
         self.wizard = Wizard(self)
 
@@ -27,7 +27,7 @@ class Awr:
         Robust connection logic featuring auto-launch capabilities and a controlled timeout loop.
         """
         self.logger.info("├── Initializing AWR Microwave Office Application...")
-
+        # noinspection PyBroadException
         try:
             app = mwoffice.CMWOffice()
             self.logger.info("└── Successfully connected to active session.")
@@ -54,6 +54,7 @@ class Awr:
         start_time = time.time()
 
         while (time.time() - start_time) < timeout:
+            # noinspection PyBroadException
             try:
                 app = mwoffice.CMWOffice()
                 self.logger.info("└── Application started and connected successfully.")

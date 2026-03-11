@@ -29,6 +29,7 @@ class Wizard(AWRComponent):
             schematic_name = "Load_Pull_Template"
 
             while (time.time() - start_wait) < timeout:
+                # noinspection PyBroadException
                 try:
                     if self.app.Project.Schematics.Exists(schematic_name):
                         schematic_ready = True
@@ -56,13 +57,8 @@ class Wizard(AWRComponent):
         try:
             project = self.app.Project
 
-            LOAD_PULL_GUID = "{85CA0552-53C3-404C-A0E9-3ECFF0D5D261}"
-            target_wizard = None
-
-            if project.Wizards.Exists("Load Pull Wizard"):
-                target_wizard = project.Wizards.Item("Load Pull Wizard")
-            elif project.Wizards.Exists(LOAD_PULL_GUID):
-                target_wizard = project.Wizards.Item(LOAD_PULL_GUID)
+            load_pull_guid = "{85CA0552-53C3-404C-A0E9-3ECFF0D5D261}"
+            target_wizard = project.Wizards.Item(load_pull_guid)
 
             if not target_wizard:
                 self.logger.error("└── Load Pull Wizard definition not found in the AWR system.")

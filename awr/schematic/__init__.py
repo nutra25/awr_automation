@@ -9,7 +9,7 @@ class Schematic(AWRComponent):
     def __init__(self, awr):
         super().__init__(awr)
 
-        self.element = Element(self)
+        self.element = Element(self.awr)
 
     def set_frequency(self, schematic_name: str, frequencies: Union[float, List[float]]) -> None:
         """Configures the RF simulation frequencies for a specific AWR schematic."""
@@ -31,13 +31,11 @@ class Schematic(AWRComponent):
                 self.logger.debug(f"│   ├── Cleared {old_count} existing points.")
 
                 freq_list = [frequencies] if isinstance(frequencies, (int, float)) else frequencies
-                total_freqs = len(freq_list)
 
-                for i, freq in enumerate(freq_list):
+                for freq in freq_list:
                     schematic.Frequencies.Add(freq * 1e9)
-                    is_last = (i == total_freqs - 1)
-                    tree_char = "└──" if is_last else "├──"
-                    self.logger.info(f"│   {tree_char} Added Frequency: {freq} GHz")
+                freqs_str = ", ".join(str(f) for f in freq_list)
+                self.logger.info(f"│   └── Successfully added frequencies (GHz): [{freqs_str}]")
 
             else:
                 self.logger.error(f"│   └── Schematic NOT found: '{schematic_name}'")
