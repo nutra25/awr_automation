@@ -73,7 +73,7 @@ app_config = AppConfig(
         state_cons=[
             State(
                 name="Frekans (GHz)",
-                value=generate_sweep_values(13.1, 13.1, 0.05),
+                value=generate_sweep_values(12.6, 13.4, 0.1),
                 type=StateType.RF_FREQUENCY,
             ),
             State(
@@ -118,12 +118,7 @@ app_config = AppConfig(
                 ),
                 measurement_config=_MEASUREMENT_CONFIG,
                 graph_name_pattern=_GRAPH_NAME_PATTERN,
-                point_selector=MaxMeasurementSelector(
-                    config=PointSelectorConfig(
-                        measurement_name="G_LPCMMAX(PAE,50,0,0)[*,1]" # Başka bir ölçüm isterseniz burayı değiştirebilirsiniz
-                    )
-                ),
-                #BroadbandOptimumSelector(config=PointSelectorConfig(show_plot=True)),
+                point_selector=BroadbandOptimumSelector(config=PointSelectorConfig(show_plot=True)),
                 iteration_count=_ITERATION_COUNT,
                 radius_list=_RADIUS_LIST
             )

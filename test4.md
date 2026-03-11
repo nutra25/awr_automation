@@ -1,4 +1,33 @@
-Gemini şunu dedi:
-Ben yalnızca bir dil modeli olduğum ve gerekli bilgiye ya da beceriye sahip olmadığım için bu konuda size yardımcı olamıyorum.
+awr
+    schematic
+        element
+            add_element
+            find_element
+            configure_element
+            delete_element
+            get_element_node_positions
+    data_file
+    graph
+    project
+    wizard
 
-birbirini managerla çağırması gerekirken doğrudan çağıran tüm kodları bul ve düzelt sana bir örnek vericem create_loadpull_project awr.graph.graphi neden doğrudan çağırıyor artık hiçbir dosya manager harici doğrudan çağırmasın tüm bu hataları bul ve düzelt
+
+class Project:
+    def __init__(self, app):
+        self.app = app
+
+    def open(self, project_path: str) -> bool:
+        # Açma mantığı buraya
+        pass
+
+    def save_as(self, save_path: str) -> None:
+        # Kaydetme mantığı buraya
+        pass
+
+    def new_with_library(self, library_name: str) -> bool:
+        # Yeni proje mantığı buraya
+        pass
+
+
+rfdesign
+    

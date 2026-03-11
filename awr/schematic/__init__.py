@@ -1,52 +1,34 @@
-"""
-schematic.py
-Encapsulates operations acting directly on the schematic level.
-Handles routing (wire creation), complex element replacement macros,
-and setting global/local RF frequencies.
-Strictly adheres to the tree-branch logging hierarchy.
-"""
+from typing import Union, List, Tuple, Set, Any
 
-import sys
-from typing import Any, List, Tuple, Set, Union
-import pyawr.mwoffice as mwoffice
-
-from core.logger import logger
-from awr.circuit_schematic.element import Element
+from .element import Element
+from awr.awr_component import AWRComponent
 
 
-class Schematic:
-    """
-    Service class managing schematic-level configurations, routing, and macros.
-    """
+class Schematic(AWRComponent):
 
-    def __init__(self, app: Any):
-        """
-        Initializes the Schematic operations class.
+    def __init__(self, awr):
+        super().__init__(awr)
 
-        Args:
-            app (Any): The active AWR MWOffice COM application instance.
-        """
-        self.app = app
-        self.element_service = Element(app)
+        self.element = Element(self)
 
     def set_frequency(self, schematic_name: str, frequencies: Union[float, List[float]]) -> None:
         """Configures the RF simulation frequencies for a specific AWR schematic."""
-        logger.info(f"├── Configuring RF Frequencies: '{schematic_name}'")
+        self.logger.info(f"├── Configuring RF Frequencies: '{schematic_name}'")
 
         try:
             project = self.app.Project
 
             if project.Schematics.Exists(schematic_name):
                 schematic = project.Schematics(schematic_name)
-                logger.debug(f"│   ├── Connected to schematic: {schematic_name}")
+                self.logger.debug(f"│   ├── Connected to schematic: {schematic_name}")
 
                 if schematic.UseProjectFrequencies:
                     schematic.UseProjectFrequencies = False
-                    logger.info(f"│   ├── Project defaults disabled.")
+                    self.logger.info(f"│   ├── Project defaults disabled.")
 
                 old_count = schematic.Frequencies.Count
                 schematic.Frequencies.Clear()
-                logger.debug(f"│   ├── Cleared {old_count} existing points.")
+                self.logger.debug(f"│   ├── Cleared {old_count} existing points.")
 
                 freq_list = [frequencies] if isinstance(frequencies, (int, float)) else frequencies
                 total_freqs = len(freq_list)
@@ -55,14 +37,14 @@ class Schematic:
                     schematic.Frequencies.Add(freq * 1e9)
                     is_last = (i == total_freqs - 1)
                     tree_char = "└──" if is_last else "├──"
-                    logger.info(f"│   {tree_char} Added Frequency: {freq} GHz")
+                    self.logger.info(f"│   {tree_char} Added Frequency: {freq} GHz")
 
             else:
-                logger.error(f"│   └── Schematic NOT found: '{schematic_name}'")
+                self.logger.error(f"│   └── Schematic NOT found: '{schematic_name}'")
                 raise ValueError(f"Schematic '{schematic_name}' is missing.")
 
         except Exception as e:
-            logger.critical(f"│   └── Critical error in frequency config: {e}")
+            self.logger.critical(f"│   └── Critical error in frequency config: {e}")
             raise
 
     def _get_schematic_obstacles(self, schematic: Any, exclude_points: List[Tuple[float, float]]) -> Tuple[Set[Tuple[float, float]], List[Tuple[float, float, float, float]]]:
@@ -159,11 +141,11 @@ class Schematic:
                 if self._is_path_clear(path, pins, wires):
                     best_path = path
                     if idx > 1:
-                        logger.debug(f"│   ├── Route adjusted to candidate {idx + 1} to avoid channel overlap.")
+                        self.logger.debug(f"│   ├── Route adjusted to candidate {idx + 1} to avoid channel overlap.")
                     break
 
             if not best_path:
-                logger.warning(f"│   ├── Congested area detected. Forcing standard overlap route to preserve connectivity.")
+                self.logger.warning(f"│   ├── Congested area detected. Forcing standard overlap route to preserve connectivity.")
                 best_path = candidate_paths[0]
 
             for i in range(len(best_path) - 1):
@@ -172,29 +154,9 @@ class Schematic:
                 if (px1 != px2) or (py1 != py2):
                     schematic.Wires.Add(px1, py1, px2, py2)
 
-            logger.debug(f"│   ├── Drawn smart channel-aware wire with {len(best_path) - 1} segment(s).")
+            self.logger.debug(f"│   ├── Drawn smart channel-aware wire with {len(best_path) - 1} segment(s).")
             return True
 
         except Exception as e:
-            logger.error(f"│   ├── Failed to draw wire from ({x1}, {y1}) to ({x2}, {y2}). Details: {e}")
+            self.logger.error(f"│   ├── Failed to draw wire from ({x1}, {y1}) to ({x2}, {y2}). Details: {e}")
             return False
-
-
-if __name__ == "__main__":
-    logger.info("├── Starting standalone test sequence for schematic.py")
-    try:
-        test_app = mwoffice.CMWOffice()
-        schematic_service = Schematic(test_app)
-
-        test_schematic = "Load_Pull_Template"
-
-        # Test frequency config
-        schematic_service.set_frequency(test_schematic, [2.4, 5.0])
-
-        # Test routing dummy coordinates
-        schematic_service.add_wire(test_schematic, 0, 0, 1000, 1000)
-
-        logger.info("└── Test execution sequence completed successfully.")
-    except Exception as ex:
-        logger.critical(f"└── Test execution failed: {ex}")
-        sys.exit(1)
