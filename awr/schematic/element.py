@@ -4,6 +4,7 @@ from awr.awr_component import AWRComponent
 class Element(AWRComponent):
     
     def add_element(self, schematic_name:str, x_pos:float, y_pos:float, element_name:Optional[str]=None, library_path:Optional[str]=None) -> Optional[Any]:
+        #ONAYLANDI
         if library_path:
             self.logger.info(f"├── Instantiating library element at ({x_pos}, {y_pos}) in '{schematic_name}'")
         elif element_name:
@@ -28,7 +29,7 @@ class Element(AWRComponent):
             return None
 
     def find_element(self, schematic_name: str, target_designator: str, allow_partial_match: bool = False) -> Union[Any, List[Any], None]:
-
+        #ONAYLANDI
         self.logger.info(f"├── Initiating element search sequence: Schematic='{schematic_name}', Target='{target_designator}'")
         self.logger.debug(f"│   ├── Mode: {'Partial Match (Bulk)' if allow_partial_match else 'Exact Match (Single)'}")
 
@@ -80,7 +81,7 @@ class Element(AWRComponent):
         return None
 
     def configure_element(self, schematic_name: str, target_designator: str, parameter_map: Dict[str, Any], allow_partial_match: bool = False) -> bool:
-
+        #ONAYLANDI
         self.logger.info(f"├── Initiating configuration sequence for '{target_designator}' in '{schematic_name}'")
 
         identified_element = self.find_element(schematic_name, target_designator, allow_partial_match)
@@ -121,7 +122,7 @@ class Element(AWRComponent):
             return False
 
     def delete_element(self, schematic_name: str, target_designator: str, allow_partial_match: bool = False) -> bool:
-
+        #ONAYLANDI
         self.logger.info(f"├── Initiating deletion sequence for target '{target_designator}' in '{schematic_name}'")
 
         identified_element = self.find_element(schematic_name, target_designator, allow_partial_match)
@@ -147,7 +148,7 @@ class Element(AWRComponent):
             return False
 
     def get_element_node_positions(self, schematic_name: str, target_designator: str, allow_partial_match: bool = False) -> List[Dict[str, Any]]:
-
+        #ONAYLANDI
         self.logger.info(f"├── Initiating node extraction sequence for '{target_designator}' in '{schematic_name}'")
 
         identified_element = self.find_element(schematic_name, target_designator, allow_partial_match)
@@ -176,7 +177,7 @@ class Element(AWRComponent):
         return node_coordinates
     
     def replace_element(self, schematic_name: str, target_designator: str, node_mapping: Dict[int, Union[int, List[int]]], library_path: Optional[str] = None, element_name: Optional[str] = None) -> bool:
-
+        #GİRİŞTE ALDIĞIMIZ YER DÜZELTİLECEK 1: 2,3 2,3:1 tersi yok eklenecek
         self.logger.info(f"├── Initiating macro sequence: Replace & Rewire for '{target_designator}'")
 
         old_element = self.awr.schematic.element.find_element(schematic_name, target_designator)

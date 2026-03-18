@@ -30,6 +30,7 @@ class Graph(AWRComponent):
         self.marker = Marker(self.awr)
 
     def find_graph(self, graph_name) -> bool:
+        # ONAYLANDI
         graphs = self.app.Project.Graphs
         for i in range(1, graphs.Count + 1):
             if graphs.Item(i).Name == graph_name:
@@ -37,7 +38,7 @@ class Graph(AWRComponent):
         return False
 
     def create_new_graph(self, graph_name: str, graph_type: GraphType) -> bool:
-
+        # ONAYLANDI
         self.logger.info(f"├── Attempting to create new graph: '{graph_name}' (Type: {graph_type.name})")
 
         if not re.match(r'^[A-Za-z0-9_ ]+$', graph_name):
@@ -61,7 +62,7 @@ class Graph(AWRComponent):
             return False
 
     def set_graph_marker_display_format(self, graph_name: str, display_format: MarkerDisplayFormat) -> bool:
-
+        # ONAYLANDI
         self.logger.info(f"├── Attempting to set marker format for graph '{graph_name}' to '{display_format.name}'")
 
         try:
@@ -80,7 +81,7 @@ class Graph(AWRComponent):
             return False
 
     def toggle_measurements(self, target_graph: Union[str, Any], enable: bool) -> bool:
-
+        # ONAYLANDI
         if isinstance(target_graph, str):
             if not self.app.Project.Graphs.Exists(target_graph):
                 self.logger.error(f"│   └── Target graph '{target_graph}' does not exist for toggle operation.")

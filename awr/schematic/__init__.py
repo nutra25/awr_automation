@@ -12,6 +12,7 @@ class Schematic(AWRComponent):
         self.element = Element(self.awr)
 
     def set_frequency(self, schematic_name: str, frequencies: Union[float, List[float]]) -> None:
+        #ONAYLANDI
         """Configures the RF simulation frequencies for a specific AWR schematic."""
         self.logger.info(f"├── Configuring RF Frequencies: '{schematic_name}'")
 
@@ -124,6 +125,7 @@ class Schematic(AWRComponent):
         return paths
 
     def add_wire(self, schematic_name: str, x1: float, y1: float, x2: float, y2: float) -> bool:
+        #AYNI HEDEFE GİDEN KABLOLAR ÇAKIŞABİLİR!! BUNU EKLE
         """
         Draws a smart wire between two distinct coordinate points in the target schematic.
         It actively scans for other pins and existing wires to avoid short-circuits and visual overlaps.

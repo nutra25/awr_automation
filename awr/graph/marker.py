@@ -1,6 +1,5 @@
 import re
-from typing import Optional, List
-
+from typing import Optional, List, Literal, Dict, Any
 from pyawr import mwoffice
 
 from awr.awr_component import AWRComponent
@@ -8,8 +7,22 @@ from awr.awr_component import AWRComponent
 
 class Marker(AWRComponent):
 
-    def add_and_move_marker(self,graph_name: str,measurement_name: str,marker_name: str,action: str = "MIN",search_val: Optional[float] = None,perform_simulation: bool = False) -> None:
-        self.logger.info(f"├── Initiating marker attachment and relocation sequence for graph: '{graph_name}'")
+    def add_marker(self, graph_name: str, measurement_name: str, marker_name: str, perform_simulation: bool = False, allow_partial_match: bool = False) -> bool:
+        # TEST ET
+        """
+        Adds a new marker to a specific measurement on a graph at the first available data point.
+
+        Args:
+            graph_name (str): The exact name of the target graph.
+            measurement_name (str): The name of the measurement to attach the marker to.
+            marker_name (str): The desired name for the new marker (e.g., "m1").
+            perform_simulation (bool): If True, triggers analysis before adding the marker.
+            allow_partial_match (bool): If True, allows substring matching for the measurement name.
+
+        Returns:
+            bool: True if the marker was successfully added, False otherwise.
+        """
+        self.logger.info(f"├── Initiating marker addition sequence for graph: '{graph_name}', marker: '{marker_name}'")
 
         try:
             project = self.app.Project
@@ -21,78 +34,93 @@ class Marker(AWRComponent):
 
             if not project.Graphs.Exists(graph_name):
                 self.logger.error(f"└── Sequence aborted: Target graph '{graph_name}' does not exist.")
-                return
+                return False
 
             graph = project.Graphs(graph_name)
 
             meas_index = -1
             target_meas = None
+
+            if allow_partial_match:
+                target_clean = measurement_name.replace(" ", "").upper()
+
             for i in range(1, graph.Measurements.Count + 1):
                 meas = graph.Measurements.Item(i)
-                if measurement_name in meas.Name:
-                    meas_index = i
-                    target_meas = meas
-                    self.logger.debug(f"│   ├── Partial match identified for measurement: '{meas.Name}'")
-                    break
+
+                if allow_partial_match:
+                    actual_clean = meas.Name.replace(" ", "").upper()
+                    if target_clean in actual_clean or actual_clean in target_clean:
+                        meas_index = i
+                        target_meas = meas
+                        self.logger.debug(
+                            f"│   ├── Partial match identified for measurement: '{meas.Name}' at index {i}")
+                        break
+                else:
+                    if meas.Name == measurement_name:
+                        meas_index = i
+                        target_meas = meas
+                        self.logger.debug(f"│   ├── Exact match identified for measurement: '{meas.Name}' at index {i}")
+                        break
 
             if meas_index == -1 or target_meas is None:
-                self.logger.error(f"└── Sequence aborted: Measurement containing '{measurement_name}' could not be located.")
-                return
+                self.logger.error(
+                    f"└── Sequence aborted: Measurement '{measurement_name}' could not be located in graph '{graph_name}'.")
+                return False
 
             if target_meas.XPointCount < 1:
-                self.logger.error("└── Sequence aborted: The target measurement contains no data points.")
-                return
+                self.logger.error(
+                    "└── Sequence aborted: The target measurement contains no data points. Cannot attach marker.")
+                return False
 
             first_x_val = target_meas.XValue(1)
 
             marker = graph.Markers.Add(meas_index, 1, first_x_val)
 
-            if marker._get_inner() is None:
+            if marker is None or marker._get_inner() is None:
                 self.logger.error("└── Sequence aborted: Failed to instantiate the marker COM object.")
-                return
+                return False
 
             marker.Name = marker_name
-            action = action.upper()
+            self.logger.info(
+                f"│   ├── Marker '{marker_name}' successfully added to '{target_meas.Name}' at X={first_x_val}.")
+            self.logger.info("└── Marker addition sequence completed successfully.")
 
-            if action == "MAX":
-                success = marker.MoveToMaximum()
-                self.logger.info(f"│   ├── Marker '{marker_name}' relocated to MAX point. (Operation Success: {success})")
-
-            elif action == "MIN":
-                success = marker.MoveToMinimum()
-                self.logger.info(f"│   ├── Marker '{marker_name}' relocated to MIN point. (Operation Success: {success})")
-
-            elif action == "SEARCH" and search_val is not None:
-                search_mode = mwoffice.mwMarkerSearchMode.mwMST_Absolute
-                search_dir = mwoffice.mwMarkerSearchDirection.mwMSD_SearchRight
-                search_var = mwoffice.mwMarkerSearchVariable.mwMSV_Y
-
-                success = marker.Search(search_val, search_mode, search_dir, search_var)
-
-                if success:
-                    self.logger.info(f"│   ├── Marker '{marker_name}' successfully relocated to Y={search_val}.")
-                else:
-                    self.logger.warning(f"│   ├── Target value {search_val} could not be found on the measurement trace.")
-
-            else:
-                self.logger.error("└── Sequence aborted: Invalid action specified. Permitted actions: 'MIN', 'MAX', 'SEARCH'.")
-                return
-
-            self.logger.info("└── Marker attachment and relocation sequence completed successfully.")
+            return True
 
         except Exception as e:
-            self.logger.error(f"└── Unexpected error occurred during marker operations: {e}")
+            self.logger.error(f"└── Unexpected error occurred during marker addition: {e}")
+            return False
 
     def move_marker(
             self,
             graph_name: str,
             marker_name: str,
-            action: str = "MIN",
+            action: Literal["MIN", "MAX", "SEARCH"] = "MIN",
             search_val: Optional[float] = None,
+            search_mode: Literal["mwMST_Absolute", "mwMST_Relative"] = "mwMST_Absolute",
+            search_dir: Literal["mwMSD_SearchRight", "mwMSD_SearchLeft", "mwMSD_SearchUp", "mwMSD_SearchDown"] = "mwMSD_SearchRight",
+            search_var: Literal["mwMSV_X", "mwMSV_Y"] = "mwMSV_Y",
             perform_simulation: bool = False
     ) -> bool:
+        # TEST ET
+        """
+        Relocates an existing marker to a specific point on the trace.
 
-        self.logger.info(f"├── Initiating marker relocation sequence for graph: '{graph_name}', marker: '{marker_name}'")
+        Args:
+            graph_name (str): The exact name of the target graph.
+            marker_name (str): The name of the marker to be moved (e.g., "m1").
+            action (Literal["MIN", "MAX", "SEARCH"]): The movement behavior.
+            search_val (Optional[float]): The target value. ONLY used when action is "SEARCH".
+            search_mode: The AWR search mode (Absolute or Relative). Default is Absolute.
+            search_dir: The direction to search (Right, Left, Up, Down). Default is Right.
+            search_var: The variable to search against (X or Y axis). Default is Y.
+            perform_simulation (bool): If True, triggers analysis before moving the marker.
+
+        Returns:
+            bool: True if the operation was successful, False otherwise.
+        """
+        self.logger.info(
+            f"├── Initiating marker relocation sequence for graph: '{graph_name}', marker: '{marker_name}'")
 
         try:
             project = self.app.Project
@@ -117,7 +145,8 @@ class Marker(AWRComponent):
                     break
 
             if target_marker is None:
-                self.logger.error(f"└── Sequence aborted: Marker '{marker_name}' could not be located on graph '{graph_name}'.")
+                self.logger.error(
+                    f"└── Sequence aborted: Marker '{marker_name}' could not be located on graph '{graph_name}'.")
                 return False
 
             action = action.upper()
@@ -125,26 +154,38 @@ class Marker(AWRComponent):
 
             if action == "MAX":
                 operation_success = target_marker.MoveToMaximum()
-                self.logger.info(f"│   ├── Marker '{marker_name}' relocated to MAX point. (Operation Success: {operation_success})")
+                self.logger.info(
+                    f"│   ├── Marker '{marker_name}' relocated to MAX point. (Operation Success: {operation_success})")
 
             elif action == "MIN":
                 operation_success = target_marker.MoveToMinimum()
-                self.logger.info(f"│   ├── Marker '{marker_name}' relocated to MIN point. (Operation Success: {operation_success})")
+                self.logger.info(
+                    f"│   ├── Marker '{marker_name}' relocated to MIN point. (Operation Success: {operation_success})")
 
-            elif action == "SEARCH" and search_val is not None:
-                search_mode = mwoffice.mwMarkerSearchMode.mwMST_Absolute
-                search_dir = mwoffice.mwMarkerSearchDirection.mwMSD_SearchRight
-                search_var = mwoffice.mwMarkerSearchVariable.mwMSV_Y
+            elif action == "SEARCH":
+                if search_val is None:
+                    self.logger.error("└── Sequence aborted: 'search_val' MUST be provided when action is 'SEARCH'.")
+                    return False
+                try:
+                    s_mode = getattr(mwoffice.mwMarkerSearchMode, search_mode)
+                    s_dir = getattr(mwoffice.mwMarkerSearchDirection, search_dir)
+                    s_var = getattr(mwoffice.mwMarkerSearchVariable, search_var)
+                except AttributeError as attr_err:
+                    self.logger.error(f"└── Sequence aborted: Invalid search parameter passed. Details: {attr_err}")
+                    return False
 
-                operation_success = target_marker.Search(search_val, search_mode, search_dir, search_var)
+                operation_success = target_marker.Search(search_val, s_mode, s_dir, s_var)
 
                 if operation_success:
-                    self.logger.info(f"│   ├── Marker '{marker_name}' successfully relocated to Y={search_val}.")
+                    self.logger.info(
+                        f"│   ├── Marker '{marker_name}' successfully relocated to {search_var[-1]}={search_val} (Mode: {search_mode}, Dir: {search_dir}).")
                 else:
-                    self.logger.warning(f"│   ├── Target value {search_val} could not be found on the trace for marker '{marker_name}'.")
+                    self.logger.warning(
+                        f"│   ├── Target value {search_val} could not be found on the trace for marker '{marker_name}'.")
 
             else:
-                self.logger.error("└── Sequence aborted: Invalid action specified. Permitted actions: 'MIN', 'MAX', 'SEARCH'.")
+                self.logger.error(
+                    "└── Sequence aborted: Invalid action specified. Permitted actions: 'MIN', 'MAX', 'SEARCH'.")
                 return False
 
             if operation_success:
@@ -158,8 +199,10 @@ class Marker(AWRComponent):
             self.logger.error(f"└── Unexpected error occurred during marker relocation: {e}")
             return False
 
-    def get_marker_data(self, graph_title: str, marker_designator: str, perform_simulation: bool = True, toggle_enable: bool = False ) -> List[float]:
-
+    def get_marker_data(self, graph_title: str, marker_designator: str, perform_simulation: bool = False, toggle_enable: bool = False) -> Dict[str, Any]:
+        """
+        Retrieves marker text data and parses it into a structured dictionary mapping labels to their numeric values.
+        """
         self.logger.info(f"├── Retrieving Marker Data: '{marker_designator}' from '{graph_title}'")
 
         try:
@@ -174,7 +217,7 @@ class Marker(AWRComponent):
 
             if target_graph is None:
                 self.logger.error(f"│   └── Graph NOT found: '{graph_title}'")
-                raise RuntimeError(f"Graph '{graph_title}' not found.")
+                return {}
 
             self.logger.debug(f"│   ├── Graph located: {target_graph.Name}")
 
@@ -196,7 +239,7 @@ class Marker(AWRComponent):
 
             if target_marker is None:
                 self.logger.error(f"│   └── Marker '{marker_designator}' NOT found on graph.")
-                raise RuntimeError(f"Marker '{marker_designator}' missing.")
+                return {}
 
             raw_text = target_marker.DataValueText
 
@@ -204,18 +247,45 @@ class Marker(AWRComponent):
                 self.awr.graph.measurement.toggle_graph_measurements(target_graph, enable=False)
 
             if not raw_text:
-                self.logger.warning("│   └── Marker value is empty. Returning default [0.0, 0.0, 0.0].")
-                return [0.0, 0.0, 0.0]
+                self.logger.warning("│   └── Marker value is empty. Returning empty structured data.")
+                return {'marker_name': marker_designator, 'data': {}, 'unlabeled': [], 'raw_text': ""}
 
-            self.logger.info(f"│   └── Raw Value: {raw_text}")
+            self.logger.info(f"│   ├── Raw Text Read: {str(raw_text).replace(chr(10), ' | ')}")
 
-            numbers = re.findall(r"-?\d+\.?\d*", str(raw_text))
+            parsed_data = {}
+            unlabeled_values = []
 
-            parsed_data = [float(n) for n in numbers]
+            lines = re.split(r'[\n\r,]+', str(raw_text))
 
-            self.logger.debug(f"│   └── Parsed Data: {parsed_data}")
-            return parsed_data
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+
+                match = re.search(r'([a-zA-Z]+[a-zA-Z0-9_]*)\s*[:=]?\s*(-?\d+\.?\d*(?:[eE][-+]?\d+)?)', line)
+
+                if match:
+                    key = match.group(1).strip()
+                    val = float(match.group(2))
+                    parsed_data[key] = val
+                else:
+                    nums = re.findall(r'-?\d+\.?\d*(?:[eE][-+]?\d+)?', line)
+                    for n in nums:
+                        unlabeled_values.append(float(n))
+
+            result = {
+                'marker_name': marker_designator,
+                'data': parsed_data,
+                'unlabeled': unlabeled_values,
+                'raw_text': raw_text
+            }
+
+            log_data_str = ", ".join([f"{k}={v}" for k, v in parsed_data.items()])
+            self.logger.debug(f"│   └── Structured Data: [{log_data_str}] | Unlabeled: {unlabeled_values}")
+            self.logger.info("└── Marker data retrieval sequence completed successfully.")
+
+            return result
 
         except Exception as read_error:
             self.logger.error(f"│   └── Error reading/parsing marker data: {read_error}")
-            raise RuntimeError(f"Failed to read data: {read_error}")
+            return {}
